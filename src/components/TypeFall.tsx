@@ -124,7 +124,7 @@ export default function TypeFall() {
       lastTickRef.current = now;
 
       // Spawn
-      const spawnEvery = Math.max(550, 1700 - level * 90);
+      const spawnEvery = Math.max(700, 3200 - level * 140);
       if (now - lastSpawnRef.current > spawnEvery) {
         lastSpawnRef.current = now;
         setObjs((prev) => [...prev, makeObj(level, idRef.current++)]);
@@ -212,7 +212,7 @@ export default function TypeFall() {
             setCombo((c) => c + 1);
             setWordsDone((w) => w + 1);
             if (active.special) {
-              setHp((h) => Math.min(MAX_HP, h + 1));
+              setHp((h) => h + 1);
               sfx.bonus();
             }
             // Spawn particles
@@ -477,11 +477,12 @@ function Sep() {
 }
 
 function HPBar({ hp }: { hp: number }) {
+  const slots = Math.max(MAX_HP, hp);
   return (
     <div className="flex items-center gap-1.5">
       <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-muted-foreground">HP</span>
       <div className="flex gap-1">
-        {Array.from({ length: MAX_HP }).map((_, i) => (
+        {Array.from({ length: Math.min(slots, 8) }).map((_, i) => (
           <span
             key={i}
             className={`block h-3 w-3 rounded-sm transition-all ${
@@ -491,6 +492,9 @@ function HPBar({ hp }: { hp: number }) {
             }`}
           />
         ))}
+        {hp > 8 && (
+          <span className="ml-1 text-xs font-bold neon-pink tabular-nums">+{hp - 8}</span>
+        )}
       </div>
     </div>
   );
