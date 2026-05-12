@@ -61,6 +61,7 @@ export default function TypeFall() {
   const [wordsDone, setWordsDone] = useState(0);
   const [startedAt, setStartedAt] = useState(0);
   const [shake, setShake] = useState(false);
+  const [levelingUp, setLevelingUp] = useState(false);
   const [highScore, setHighScore] = useState(0);
   const [particles, setParticles] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
 
@@ -113,6 +114,31 @@ export default function TypeFall() {
     if (lvl !== level) {
       setLevel(lvl);
       sfx.levelUp();
+      // Explode all remaining objects, then show breather overlay
+      setObjs((prev) => {
+        const burst = prev.flatMap((o) =>
+          Array.from({ length: 12 }).map(() => ({
+            id: partIdRef.current++,
+            x: o.x,
+            y: o.y,
+            color: "var(--neon-violet)",
+          })),
+        );
+        if (burst.length > 0) {
+          sfx.destroy();
+          setParticles((p) => [...p, ...burst]);
+          setTimeout(() => {
+            setParticles((p) => p.filter((pp) => !burst.find((b) => b.id === pp.id)));
+          }, 800);
+        }
+        return [];
+      });
+      setLevelingUp(true);
+      lastSpawnRef.current = performance.now() + 1900;
+      setTimeout(() => {
+        setLevelingUp(false);
+        lastSpawnRef.current = performance.now();
+      }, 1900);
     }
   }, [score, level]);
 
@@ -122,6 +148,11 @@ export default function TypeFall() {
     const loop = (now: number) => {
       const dt = Math.min(0.05, (now - lastTickRef.current) / 1000);
       lastTickRef.current = now;
+
+      if (levelingUp) {
+        rafRef.current = requestAnimationFrame(loop);
+        return;
+      }
 
       // Spawn
       const spawnEvery = Math.max(700, 3200 - level * 140);
@@ -173,7 +204,7 @@ export default function TypeFall() {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [status, level]);
+  }, [status, level, levelingUp]);
 
   // Keyboard input
   useEffect(() => {
