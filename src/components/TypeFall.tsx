@@ -410,6 +410,38 @@ export default function TypeFall() {
           </Overlay>
         )}
       </AnimatePresence>
+
+      {/* Level-up breather */}
+      <AnimatePresence>
+        {levelingUp && status === "playing" && (
+          <motion.div
+            key="lvlup"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-background/40 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.4, opacity: 0, filter: "blur(20px)" }}
+              animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
+              exit={{ scale: 1.6, opacity: 0, filter: "blur(20px)" }}
+              transition={{ type: "spring", stiffness: 180, damping: 16 }}
+              className="flex flex-col items-center gap-3 text-center"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-[0.6em] text-muted-foreground">
+                Level Up
+              </span>
+              <span className="neon-violet text-7xl font-black tracking-[0.2em] sm:text-9xl">
+                LV {level}
+              </span>
+              <span className="text-xs uppercase tracking-[0.4em] neon-cyan">
+                Tarik nafas...
+              </span>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
