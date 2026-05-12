@@ -61,6 +61,7 @@ export default function TypeFall() {
   const [wordsDone, setWordsDone] = useState(0);
   const [startedAt, setStartedAt] = useState(0);
   const [shake, setShake] = useState(false);
+  const [levelingUp, setLevelingUp] = useState(false);
   const [highScore, setHighScore] = useState(0);
   const [particles, setParticles] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
 
@@ -113,6 +114,31 @@ export default function TypeFall() {
     if (lvl !== level) {
       setLevel(lvl);
       sfx.levelUp();
+      // Explode all remaining objects, then show breather overlay
+      setObjs((prev) => {
+        const burst = prev.flatMap((o) =>
+          Array.from({ length: 12 }).map(() => ({
+            id: partIdRef.current++,
+            x: o.x,
+            y: o.y,
+            color: "var(--neon-violet)",
+          })),
+        );
+        if (burst.length > 0) {
+          sfx.destroy();
+          setParticles((p) => [...p, ...burst]);
+          setTimeout(() => {
+            setParticles((p) => p.filter((pp) => !burst.find((b) => b.id === pp.id)));
+          }, 800);
+        }
+        return [];
+      });
+      setLevelingUp(true);
+      lastSpawnRef.current = performance.now() + 1900;
+      setTimeout(() => {
+        setLevelingUp(false);
+        lastSpawnRef.current = performance.now();
+      }, 1900);
     }
   }, [score, level]);
 
@@ -122,6 +148,11 @@ export default function TypeFall() {
     const loop = (now: number) => {
       const dt = Math.min(0.05, (now - lastTickRef.current) / 1000);
       lastTickRef.current = now;
+
+      if (levelingUp) {
+        rafRef.current = requestAnimationFrame(loop);
+        return;
+      }
 
       // Spawn
       const spawnEvery = Math.max(700, 3200 - level * 140);
@@ -173,7 +204,7 @@ export default function TypeFall() {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [status, level]);
+  }, [status, level, levelingUp]);
 
   // Keyboard input
   useEffect(() => {
@@ -183,7 +214,7 @@ export default function TypeFall() {
         else if (status === "paused") setStatus("playing");
         return;
       }
-      if (status !== "playing") return;
+      if (status !== "playing" || levelingUp) return;
       if (e.key.length !== 1) return;
       const ch = e.key.toLowerCase();
       if (!/^[a-z]$/.test(ch)) return;
@@ -377,6 +408,38 @@ export default function TypeFall() {
               Main Lagi
             </button>
           </Overlay>
+        )}
+      </AnimatePresence>
+
+      {/* Level-up breather */}
+      <AnimatePresence>
+        {levelingUp && status === "playing" && (
+          <motion.div
+            key="lvlup"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-background/40 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.4, opacity: 0, filter: "blur(20px)" }}
+              animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
+              exit={{ scale: 1.6, opacity: 0, filter: "blur(20px)" }}
+              transition={{ type: "spring", stiffness: 180, damping: 16 }}
+              className="flex flex-col items-center gap-3 text-center"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-[0.6em] text-muted-foreground">
+                Level Up
+              </span>
+              <span className="neon-violet text-7xl font-black tracking-[0.2em] sm:text-9xl">
+                LV {level}
+              </span>
+              <span className="text-xs uppercase tracking-[0.4em] neon-cyan">
+                Tarik nafas...
+              </span>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
