@@ -214,7 +214,7 @@ export default function TypeFall() {
         else if (status === "paused") setStatus("playing");
         return;
       }
-      if (status !== "playing") return;
+      if (status !== "playing" || levelingUp) return;
       if (e.key.length !== 1) return;
       const ch = e.key.toLowerCase();
       if (!/^[a-z]$/.test(ch)) return;
