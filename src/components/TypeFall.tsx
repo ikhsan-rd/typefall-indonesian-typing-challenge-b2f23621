@@ -343,6 +343,35 @@ export default function TypeFall() {
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 grid-floor bg-drift opacity-40" />
+      <AnimatePresence>
+        {hp === 1 && status === "playing" && (
+          <motion.div
+            key="emergency"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="pointer-events-none absolute inset-0 z-10"
+          >
+            <motion.div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(ellipse at center, transparent 30%, color-mix(in oklch, var(--danger) 45%, transparent) 100%)",
+              }}
+              animate={{ opacity: [0.55, 1, 0.55] }}
+              transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                boxShadow:
+                  "inset 0 0 120px 40px color-mix(in oklch, var(--danger) 70%, transparent)",
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div
         className="pointer-events-none absolute inset-x-0"
         style={{
