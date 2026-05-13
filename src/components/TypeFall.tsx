@@ -400,7 +400,7 @@ export default function TypeFall() {
           </div>
         </div>
         <div className="mx-auto mt-2 max-w-6xl text-center text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-          TypeFall · Hi {highScore} · Esc untuk pause
+          TypeFall · Speed Typing Arcade · Hi {highScore}
         </div>
       </div>
 
@@ -715,7 +715,7 @@ function Title() {
         <span className="neon-pink">FALL</span>
       </span>
       <span className="mt-2 block text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-        Indie Typing Arcade
+        Speed Typing Arcade
       </span>
     </h1>
   );
