@@ -41,7 +41,7 @@ function makeObj(level: number, id: number): FallObj {
   const word = special
     ? randomNonsense(baseLen + Math.floor(Math.random() * 3))
     : getRandomWord(level);
-  const speed = 2.4 + level * 0.45 + Math.random() * 0.8; // %/s
+  const speed = 2.2 + level * 1.1 + Math.random() * 0.8; // %/s — naik signifikan tiap level
   return {
     id,
     word,
