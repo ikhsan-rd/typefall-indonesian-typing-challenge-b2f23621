@@ -427,8 +427,7 @@ export default function TypeFall() {
           <Overlay key="menu">
             <Title />
             <p className="max-w-md text-center text-sm leading-relaxed text-muted-foreground">
-              Ketik kata yang jatuh sebelum mereka menyentuh garis. Kata{" "}
-              <span className="neon-pink font-semibold">spesial</span> memberi +1 HP.
+              Ketik kata sebelum menyentuh garis.
             </p>
             <button onClick={startGame} className="cta">
               Mulai Bermain
