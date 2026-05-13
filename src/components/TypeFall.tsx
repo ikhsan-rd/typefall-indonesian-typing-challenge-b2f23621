@@ -27,7 +27,7 @@ const FLOOR_Y = 92; // % from top
 // Per-level gap = 50 + (level-2)*10 (i.e. L1->L2 gap=50, L2->L3=60, L3->L4=70 ...)
 function thresholdToReach(level: number): number {
   if (level <= 1) return 0;
-  return (level - 1) * (50 + 5 * (level - 2));
+  return (level - 1) * (30 + 5 * (level - 2));
 }
 function levelFromScore(score: number): number {
   let lvl = 1;
@@ -35,13 +35,24 @@ function levelFromScore(score: number): number {
   return lvl;
 }
 
-function makeObj(level: number, id: number): FallObj {
+async function makeObj(level: number, id: number): Promise<FallObj> {
   const special = Math.random() < Math.min(0.18, 0.05 + level * 0.012);
+
   const baseLen = 4 + Math.floor(Math.random() * 3);
+
   const word = special
     ? randomNonsense(baseLen + Math.floor(Math.random() * 3))
-    : getRandomWord(level);
-  const speed = 2.2 + level * 1.1 + Math.random() * 0.8; // %/s — naik signifikan tiap level
+    : await getRandomWord(level);
+
+  const baseSpeed = 2.5;
+  const levelSpeed = level * 2.5;
+
+  const r = Math.random();
+  const randomSpeed =
+    r < 0.7 ? Math.random() * (1 + level * 0.08) : Math.random() * (2 + level * 0.12);
+
+  const speed = baseSpeed + levelSpeed + randomSpeed;
+
   return {
     id,
     word,
@@ -78,7 +89,9 @@ export default function TypeFall() {
   const [levelingUp, setLevelingUp] = useState(false);
   const [displayLevel, setDisplayLevel] = useState(1);
   const [highScore, setHighScore] = useState(0);
-  const [particles, setParticles] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
+  const [particles, setParticles] = useState<{ id: number; x: number; y: number; color: string }[]>(
+    [],
+  );
   const [hearts, setHearts] = useState<{ id: number; x: number; y: number }[]>([]);
 
   const idRef = useRef(1);
@@ -180,6 +193,9 @@ export default function TypeFall() {
   // Game loop
   useEffect(() => {
     if (status !== "playing") return;
+
+    let cancelled = false;
+
     const loop = (now: number) => {
       const dt = Math.min(0.05, (now - lastTickRef.current) / 1000);
       lastTickRef.current = now;
@@ -193,31 +209,42 @@ export default function TypeFall() {
       const spawnEvery = Math.max(700, 3200 - level * 140);
       if (now - lastSpawnRef.current > spawnEvery) {
         lastSpawnRef.current = now;
-        setObjs((prev) => [...prev, makeObj(level, idRef.current++)]);
+
+        (async () => {
+          const obj = await makeObj(level, idRef.current++);
+          if (cancelled) return;
+          setObjs((prev) => [...prev, obj]);
+        })();
       }
 
       // Move + floor collision
       setObjs((prev) => {
         const next: FallObj[] = [];
         let lostHp = 0;
+
         for (const o of prev) {
-          const speedMul = o.typo && now < o.typoUntil ? 2 : 1;
-          const ny = o.y + o.speed * speedMul * dt;
+          const ny = o.y + o.speed * dt;
+
           if (ny >= FLOOR_Y) {
             lostHp++;
             continue;
           }
+
           let typo = o.typo;
           let typoUntil = o.typoUntil;
+
           if (typo && now > typoUntil) {
             typo = false;
           }
+
           next.push({ ...o, y: ny, typo, typoUntil });
         }
+
         if (lostHp > 0) {
           sfx.hpLoss();
           setShake(true);
           setTimeout(() => setShake(false), 350);
+
           setHp((h) => {
             const nh = h - lostHp;
             if (nh <= 0) {
@@ -227,15 +254,20 @@ export default function TypeFall() {
             }
             return nh;
           });
+
           setCombo(0);
         }
+
         return next;
       });
 
       rafRef.current = requestAnimationFrame(loop);
     };
+
     rafRef.current = requestAnimationFrame(loop);
+
     return () => {
+      cancelled = true;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, [status, level, levelingUp]);
@@ -308,6 +340,7 @@ export default function TypeFall() {
           setCombo(0);
           const updated: FallObj = {
             ...active,
+            speed: active.speed * 2, // permanen
             typo: true,
             typoUntil: performance.now() + 1500,
           };
@@ -357,16 +390,17 @@ export default function TypeFall() {
               className="absolute inset-0"
               style={{
                 background:
-                  "radial-gradient(ellipse at center, transparent 30%, color-mix(in oklch, var(--danger) 45%, transparent) 100%)",
+                  "radial-gradient(ellipse at center, transparent 80%, color-mix(in oklch, var(--danger) 40%, transparent) 100%)",
               }}
-              animate={{ opacity: [0.55, 1, 0.55] }}
+              animate={{ opacity: [0.45, 0.8, 0.45] }}
               transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
             />
+
             <div
               className="absolute inset-0"
               style={{
                 boxShadow:
-                  "inset 0 0 120px 40px color-mix(in oklch, var(--danger) 70%, transparent)",
+                  "inset 0 0 60px 10px color-mix(in oklch, var(--danger) 55%, transparent)",
               }}
             />
           </motion.div>
@@ -385,7 +419,7 @@ export default function TypeFall() {
 
       {/* HUD */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 p-3 sm:p-5">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2">
+        <div className="flex w-full flex-wrap items-center justify-between gap-2">
           <div className="glass pointer-events-auto flex items-center gap-3 rounded-xl px-4 py-2 sm:gap-5">
             <Stat label="SCORE" value={score} accent="cyan" mono />
             <Sep />
@@ -396,10 +430,8 @@ export default function TypeFall() {
                   className="h-full rounded-full transition-all"
                   style={{
                     width: `${lvlProgress * 100}%`,
-                    background:
-                      "linear-gradient(90deg, var(--neon-violet), var(--neon-cyan))",
-                    boxShadow:
-                      "0 0 8px color-mix(in oklch, var(--neon-violet) 70%, transparent)",
+                    background: "linear-gradient(90deg, var(--neon-violet), var(--neon-cyan))",
+                    boxShadow: "0 0 8px color-mix(in oklch, var(--neon-violet) 70%, transparent)",
                   }}
                 />
               </div>
@@ -715,7 +747,9 @@ function HPBar({ hp }: { hp: number }) {
   const slots = Math.max(MAX_HP, hp);
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-muted-foreground">HP</span>
+      <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-muted-foreground">
+        HP
+      </span>
       <div className="flex gap-1">
         {Array.from({ length: Math.min(slots, 8) }).map((_, i) => (
           <span
@@ -727,9 +761,7 @@ function HPBar({ hp }: { hp: number }) {
             }`}
           />
         ))}
-        {hp > 8 && (
-          <span className="ml-1 text-xs font-bold neon-pink tabular-nums">+{hp - 8}</span>
-        )}
+        {hp > 8 && <span className="ml-1 text-xs font-bold neon-pink tabular-nums">+{hp - 8}</span>}
       </div>
     </div>
   );
