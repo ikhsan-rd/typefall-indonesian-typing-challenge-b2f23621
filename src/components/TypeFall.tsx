@@ -24,7 +24,7 @@ const FLOOR_Y = 92; // % from top
 
 // Cumulative score required to REACH given level.
 // L1=0, L2=50, L3=110, L4=180, L5=260, ...
-// Per-level gap = 50 + (level-2)*10 (i.e. L1->L2 gap=50, L2->L3=60, L3->L4=70 ...)
+// Per-level gap = 30 + (level-2)*10 (i.e. L1->L2 gap=50, L2->L3=60, L3->L4=70 ...)
 function thresholdToReach(level: number): number {
   if (level <= 1) return 0;
   return (level - 1) * (30 + 5 * (level - 2));
@@ -290,7 +290,7 @@ export default function TypeFall() {
         if (prev.length === 0) return prev;
         let activeIdx = 0;
         for (let i = 1; i < prev.length; i++) {
-          if (prev[i].y > prev[activeIdx].y) activeIdx = i;
+          if (prev[i].bornAt < prev[activeIdx].bornAt) activeIdx = i;
         }
         const active = prev[activeIdx];
         const expected = active.word[active.typed];
@@ -357,7 +357,7 @@ export default function TypeFall() {
   const activeId = useMemo(() => {
     if (objs.length === 0) return null;
     let a = objs[0];
-    for (const o of objs) if (o.y > a.y) a = o;
+    for (const o of objs) if (o.bornAt < a.bornAt) a = o;
     return a.id;
   }, [objs]);
 
