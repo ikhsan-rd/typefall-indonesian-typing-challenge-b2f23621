@@ -715,7 +715,7 @@ function Title() {
         <span className="neon-pink">FALL</span>
       </span>
       <span className="mt-2 block text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-        Indie Typing Arcade
+        Speed Typing Arcade
       </span>
     </h1>
   );
