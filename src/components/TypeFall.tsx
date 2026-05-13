@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Home, Pause, Play, RotateCcw } from "lucide-react";
 import { getRandomWord, randomNonsense } from "@/lib/words";
 import { sfx } from "@/lib/sounds";
 
@@ -20,6 +21,19 @@ type Status = "menu" | "playing" | "paused" | "over";
 
 const MAX_HP = 5;
 const FLOOR_Y = 92; // % from top
+
+// Cumulative score required to REACH given level.
+// L1=0, L2=50, L3=110, L4=180, L5=260, ...
+// Per-level gap = 50 + (level-2)*10 (i.e. L1->L2 gap=50, L2->L3=60, L3->L4=70 ...)
+function thresholdToReach(level: number): number {
+  if (level <= 1) return 0;
+  return (level - 1) * (50 + 5 * (level - 2));
+}
+function levelFromScore(score: number): number {
+  let lvl = 1;
+  while (thresholdToReach(lvl + 1) <= score) lvl++;
+  return lvl;
+}
 
 function makeObj(level: number, id: number): FallObj {
   const special = Math.random() < Math.min(0.18, 0.05 + level * 0.012);
@@ -62,11 +76,14 @@ export default function TypeFall() {
   const [startedAt, setStartedAt] = useState(0);
   const [shake, setShake] = useState(false);
   const [levelingUp, setLevelingUp] = useState(false);
+  const [displayLevel, setDisplayLevel] = useState(1);
   const [highScore, setHighScore] = useState(0);
   const [particles, setParticles] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
+  const [hearts, setHearts] = useState<{ id: number; x: number; y: number }[]>([]);
 
   const idRef = useRef(1);
   const partIdRef = useRef(1);
+  const heartIdRef = useRef(1);
   const lastTickRef = useRef(performance.now());
   const lastSpawnRef = useRef(performance.now());
   const rafRef = useRef<number | null>(null);
@@ -87,34 +104,9 @@ export default function TypeFall() {
     }
   }, [status, score, highScore]);
 
-  const reset = useCallback(() => {
-    setObjs([]);
-    setScore(0);
-    setHp(MAX_HP);
-    setLevel(1);
-    setCombo(0);
-    setKeysOk(0);
-    setKeysTotal(0);
-    setWordsDone(0);
-    setParticles([]);
-    idRef.current = 1;
-    lastTickRef.current = performance.now();
-    lastSpawnRef.current = performance.now();
-    setStartedAt(performance.now());
-  }, []);
-
-  const startGame = useCallback(() => {
-    reset();
-    setStatus("playing");
-  }, [reset]);
-
-  // Level from score (every 20 points)
-  useEffect(() => {
-    const lvl = 1 + Math.floor(score / 20);
-    if (lvl !== level) {
-      setLevel(lvl);
-      sfx.levelUp();
-      // Explode all remaining objects, then show breather overlay
+  const triggerLevelBreather = useCallback((lvl: number, explode: boolean) => {
+    setDisplayLevel(lvl);
+    if (explode) {
       setObjs((prev) => {
         const burst = prev.flatMap((o) =>
           Array.from({ length: 12 }).map(() => ({
@@ -133,14 +125,57 @@ export default function TypeFall() {
         }
         return [];
       });
-      setLevelingUp(true);
-      lastSpawnRef.current = performance.now() + 1900;
-      setTimeout(() => {
-        setLevelingUp(false);
-        lastSpawnRef.current = performance.now();
-      }, 1900);
     }
-  }, [score, level]);
+    setLevelingUp(true);
+    lastSpawnRef.current = performance.now() + 1900;
+    setTimeout(() => {
+      setLevelingUp(false);
+      lastSpawnRef.current = performance.now();
+    }, 1900);
+  }, []);
+
+  const reset = useCallback(() => {
+    setObjs([]);
+    setScore(0);
+    setHp(MAX_HP);
+    setLevel(1);
+    setCombo(0);
+    setKeysOk(0);
+    setKeysTotal(0);
+    setWordsDone(0);
+    setParticles([]);
+    setHearts([]);
+    idRef.current = 1;
+    lastTickRef.current = performance.now();
+    lastSpawnRef.current = performance.now();
+    setStartedAt(performance.now());
+  }, []);
+
+  const startGame = useCallback(() => {
+    reset();
+    setStatus("playing");
+    // Show "LV 1" breather at start
+    triggerLevelBreather(1, false);
+  }, [reset, triggerLevelBreather]);
+
+  const goHome = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    setLevelingUp(false);
+    setObjs([]);
+    setParticles([]);
+    setHearts([]);
+    setStatus("menu");
+  }, []);
+
+  // Level from score (cumulative thresholds)
+  useEffect(() => {
+    const lvl = levelFromScore(score);
+    if (lvl !== level) {
+      setLevel(lvl);
+      sfx.levelUp();
+      triggerLevelBreather(lvl, true);
+    }
+  }, [score, level, triggerLevelBreather]);
 
   // Game loop
   useEffect(() => {
@@ -172,7 +207,6 @@ export default function TypeFall() {
             lostHp++;
             continue;
           }
-          // Recover from typo color after timeout if not typed wrong recently
           let typo = o.typo;
           let typoUntil = o.typoUntil;
           if (typo && now > typoUntil) {
@@ -222,8 +256,6 @@ export default function TypeFall() {
 
       setObjs((prev) => {
         if (prev.length === 0) return prev;
-        // Active = lowest y (closest to floor) of NON-typo and not typo? — spec: only frontmost
-        // Frontmost = the one closest to the floor (largest y)
         let activeIdx = 0;
         for (let i = 1; i < prev.length; i++) {
           if (prev[i].y > prev[activeIdx].y) activeIdx = i;
@@ -236,17 +268,22 @@ export default function TypeFall() {
           setKeysOk((k) => k + 1);
           const newTyped = active.typed + 1;
           if (newTyped >= active.word.length) {
-            // Destroy
+            // Destroy — points capped at 4 (zone only, no combo bonus)
             sfx.destroy();
-            const pts = getZonePoints(active.y) + Math.floor(combo / 5);
+            const pts = getZonePoints(active.y);
             setScore((s) => s + pts);
             setCombo((c) => c + 1);
             setWordsDone((w) => w + 1);
             if (active.special) {
               setHp((h) => h + 1);
               sfx.bonus();
+              // Heart fly-up animation
+              const heart = { id: heartIdRef.current++, x: active.x, y: active.y };
+              setHearts((hs) => [...hs, heart]);
+              setTimeout(() => {
+                setHearts((hs) => hs.filter((h) => h.id !== heart.id));
+              }, 1800);
             }
-            // Spawn particles
             const color = active.special ? "var(--neon-pink)" : "var(--neon-cyan)";
             const burst = Array.from({ length: 10 }).map(() => ({
               id: partIdRef.current++,
@@ -260,13 +297,11 @@ export default function TypeFall() {
             }, 700);
             return prev.filter((_, i) => i !== activeIdx);
           }
-          // Clear typo state on correct keystroke
           const updated = { ...active, typed: newTyped, typo: false };
           const copy = prev.slice();
           copy[activeIdx] = updated;
           return copy;
         } else {
-          // Typo
           sfx.typo();
           setShake(true);
           setTimeout(() => setShake(false), 280);
@@ -284,9 +319,8 @@ export default function TypeFall() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [status, combo]);
+  }, [status, combo, levelingUp]);
 
-  // Active id (frontmost)
   const activeId = useMemo(() => {
     if (objs.length === 0) return null;
     let a = objs[0];
@@ -298,11 +332,17 @@ export default function TypeFall() {
   const elapsedMin = Math.max(0.0167, (performance.now() - startedAt) / 60000);
   const wpm = status === "playing" || status === "paused" ? Math.round(wordsDone / elapsedMin) : 0;
 
+  // Progress to next level
+  const nextThreshold = thresholdToReach(level + 1);
+  const curThreshold = thresholdToReach(level);
+  const lvlProgress = Math.min(
+    1,
+    Math.max(0, (score - curThreshold) / Math.max(1, nextThreshold - curThreshold)),
+  );
+
   return (
     <div className="relative h-screen w-screen overflow-hidden">
-      {/* Background floor grid */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 grid-floor bg-drift opacity-40" />
-      {/* Floor line */}
       <div
         className="pointer-events-none absolute inset-x-0"
         style={{
@@ -320,7 +360,21 @@ export default function TypeFall() {
           <div className="glass pointer-events-auto flex items-center gap-3 rounded-xl px-4 py-2 sm:gap-5">
             <Stat label="SCORE" value={score} accent="cyan" mono />
             <Sep />
-            <Stat label="LVL" value={level} accent="violet" />
+            <div className="flex flex-col gap-1">
+              <Stat label="LVL" value={level} accent="violet" />
+              <div className="h-1 w-16 overflow-hidden rounded-full bg-border/60">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${lvlProgress * 100}%`,
+                    background:
+                      "linear-gradient(90deg, var(--neon-violet), var(--neon-cyan))",
+                    boxShadow:
+                      "0 0 8px color-mix(in oklch, var(--neon-violet) 70%, transparent)",
+                  }}
+                />
+              </div>
+            </div>
             <Sep />
             <HPBar hp={hp} />
           </div>
@@ -329,22 +383,20 @@ export default function TypeFall() {
             <Sep />
             <Stat label="WPM" value={wpm} accent="amber" />
             <Sep />
-            <Stat label="x" value={Math.max(1, 1 + Math.floor(combo / 5))} accent="pink" />
-            <Sep />
-            <button
+            <IconBtn
+              label={status === "paused" ? "Resume" : "Pause"}
               onClick={() =>
                 setStatus((s) => (s === "playing" ? "paused" : s === "paused" ? "playing" : s))
               }
-              className="rounded-md border border-border/60 bg-secondary/40 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-foreground transition hover:bg-secondary"
             >
-              {status === "paused" ? "Resume" : "Pause"}
-            </button>
-            <button
-              onClick={startGame}
-              className="rounded-md border border-border/60 bg-secondary/40 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-foreground transition hover:bg-secondary"
-            >
-              Restart
-            </button>
+              {status === "paused" ? <Play size={16} /> : <Pause size={16} />}
+            </IconBtn>
+            <IconBtn label="Restart" onClick={startGame}>
+              <RotateCcw size={16} />
+            </IconBtn>
+            <IconBtn label="Home" onClick={goHome}>
+              <Home size={16} />
+            </IconBtn>
           </div>
         </div>
         <div className="mx-auto mt-2 max-w-6xl text-center text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
@@ -360,9 +412,12 @@ export default function TypeFall() {
           ))}
         </AnimatePresence>
 
-        {/* Particles */}
         {particles.map((p) => (
           <Particle key={p.id} x={p.x} y={p.y} color={p.color} />
+        ))}
+
+        {hearts.map((h) => (
+          <FloatingHeart key={h.id} x={h.x} y={h.y} />
         ))}
       </div>
 
@@ -384,9 +439,14 @@ export default function TypeFall() {
         {status === "paused" && (
           <Overlay key="paused">
             <h2 className="neon-cyan text-3xl font-black tracking-[0.2em]">PAUSED</h2>
-            <button onClick={() => setStatus("playing")} className="cta">
-              Lanjutkan
-            </button>
+            <div className="flex gap-3">
+              <button onClick={() => setStatus("playing")} className="cta">
+                Lanjutkan
+              </button>
+              <button onClick={goHome} className="cta-ghost">
+                Home
+              </button>
+            </div>
           </Overlay>
         )}
         {status === "over" && (
@@ -404,9 +464,14 @@ export default function TypeFall() {
               <span className="text-muted-foreground">WPM</span>
               <span className="font-bold">{wpm}</span>
             </div>
-            <button onClick={startGame} className="cta">
-              Main Lagi
-            </button>
+            <div className="flex gap-3">
+              <button onClick={startGame} className="cta">
+                Main Lagi
+              </button>
+              <button onClick={goHome} className="cta-ghost">
+                Home
+              </button>
+            </div>
           </Overlay>
         )}
       </AnimatePresence>
@@ -430,18 +495,34 @@ export default function TypeFall() {
               className="flex flex-col items-center gap-3 text-center"
             >
               <span className="text-[10px] font-bold uppercase tracking-[0.6em] text-muted-foreground">
-                Level Up
+                {displayLevel === 1 ? "Get Ready" : "Level Up"}
               </span>
               <span className="neon-violet text-7xl font-black tracking-[0.2em] sm:text-9xl">
-                LV {level}
+                LV {displayLevel}
               </span>
               <span className="text-xs uppercase tracking-[0.4em] neon-cyan">
-                Tarik nafas...
+                {displayLevel === 1 ? "Mulai mengetik..." : "Tarik nafas..."}
               </span>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <style>{`
+        .cta-ghost {
+          padding: 0.75rem 1.5rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.25em;
+          font-size: 0.8rem;
+          border-radius: 999px;
+          color: var(--foreground);
+          background: color-mix(in oklch, white 6%, transparent);
+          border: 1px solid color-mix(in oklch, white 14%, transparent);
+          transition: transform 0.15s ease, background 0.2s ease;
+        }
+        .cta-ghost:hover { background: color-mix(in oklch, white 12%, transparent); transform: translateY(-1px); }
+      `}</style>
     </div>
   );
 }
@@ -502,6 +583,48 @@ function Particle({ x, y, color }: { x: number; y: number; color: string }) {
   );
 }
 
+function FloatingHeart({ x, y }: { x: number; y: number }) {
+  const drift = (Math.random() - 0.5) * 30;
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.4, x: 0, y: 0 }}
+      animate={{
+        opacity: [0, 1, 1, 0],
+        scale: [0.4, 1.2, 1, 0.9],
+        x: drift,
+        y: -180,
+      }}
+      transition={{ duration: 1.6, ease: "easeOut", times: [0, 0.15, 0.7, 1] }}
+      style={{
+        position: "absolute",
+        left: `${x}%`,
+        top: `${y}%`,
+        transform: "translate(-50%, -50%)",
+        pointerEvents: "none",
+        zIndex: 15,
+      }}
+    >
+      <div className="flex flex-col items-center gap-1">
+        <svg
+          width="44"
+          height="44"
+          viewBox="0 0 24 24"
+          fill="var(--neon-pink)"
+          style={{
+            filter:
+              "drop-shadow(0 0 10px color-mix(in oklch, var(--neon-pink) 80%, transparent)) drop-shadow(0 0 22px color-mix(in oklch, var(--neon-pink) 50%, transparent))",
+          }}
+        >
+          <path d="M12 21s-7-4.5-9.5-9C1 8.5 3 5 6.5 5c2 0 3.5 1 5.5 3 2-2 3.5-3 5.5-3C21 5 23 8.5 21.5 12 19 16.5 12 21 12 21z" />
+        </svg>
+        <span className="rounded-full bg-background/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest neon-pink">
+          +1 HP
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
 function Stat({
   label,
   value,
@@ -537,6 +660,27 @@ function Stat({
 
 function Sep() {
   return <span className="h-5 w-px bg-border/70" />;
+}
+
+function IconBtn({
+  children,
+  label,
+  onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="flex h-8 w-8 items-center justify-center rounded-md border border-border/60 bg-secondary/40 text-foreground transition hover:bg-secondary hover:text-[color:var(--neon-cyan)]"
+    >
+      {children}
+    </button>
+  );
 }
 
 function HPBar({ hp }: { hp: number }) {
