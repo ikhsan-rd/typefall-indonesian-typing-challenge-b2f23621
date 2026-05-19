@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, Pause, Play, RotateCcw } from "lucide-react";
+import { Home, Pause, Play, RotateCcw, Users } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { getRandomWord, randomNonsense } from "@/lib/words";
 import { sfx } from "@/lib/sounds";
 
@@ -493,6 +494,9 @@ export default function TypeFall() {
             <button onClick={startGame} className="cta">
               Mulai Bermain
             </button>
+            <Link to="/multiplayer" className="cta-ghost flex items-center gap-2">
+              <Users size={14} /> Multiplayer 1v1
+            </Link>
             <div className="text-xs text-muted-foreground">High Score: {highScore}</div>
           </Overlay>
         )}
