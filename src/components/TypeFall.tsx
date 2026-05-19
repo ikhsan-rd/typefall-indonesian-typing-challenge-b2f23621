@@ -494,6 +494,9 @@ export default function TypeFall() {
             <button onClick={startGame} className="cta">
               Mulai Bermain
             </button>
+            <Link to="/multiplayer" className="cta-ghost flex items-center gap-2">
+              <Users size={14} /> Multiplayer 1v1
+            </Link>
             <div className="text-xs text-muted-foreground">High Score: {highScore}</div>
           </Overlay>
         )}
