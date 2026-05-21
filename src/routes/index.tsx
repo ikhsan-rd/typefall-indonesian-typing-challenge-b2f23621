@@ -38,23 +38,11 @@ const GAMES: GameCard[] = [
     title: "TypeFall",
     tagline: "Speed Typing Arcade",
     description:
-      "Ketik kata baku KBBI secepat mungkin sebelum objek menyentuh garis bawah. Tersedia mode Solo & Multiplayer 1v1.",
+      "Ketik kata baku KBBI secepat mungkin sebelum objek menyentuh garis bawah. Tersedia mode Solo dan Multiplayer 1v1 di dalam game.",
     to: "/typefall",
     badge: "Populer",
     icon: <Keyboard className="w-8 h-8" />,
     gradient: "from-cyan-500 via-blue-500 to-indigo-600",
-    available: true,
-  },
-  {
-    id: "multiplayer",
-    title: "TypeFall 1v1",
-    tagline: "Realtime Duel",
-    description:
-      "Duel mengetik tarik-tambang dengan teman secara realtime. Buat room atau join dengan kode.",
-    to: "/multiplayer",
-    badge: "Realtime",
-    icon: <Users className="w-8 h-8" />,
-    gradient: "from-fuchsia-500 via-pink-500 to-rose-500",
     available: true,
   },
   {
