@@ -540,10 +540,55 @@ export default function TypeFall() {
             <button onClick={startGame} className="cta">
               Mulai Bermain
             </button>
-            <Link to="/multiplayer" className="cta-ghost flex items-center gap-2">
-              <Users size={14} /> Multiplayer 1v1
-            </Link>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Link to="/multiplayer" className="cta-ghost flex items-center gap-2">
+                <Users size={14} /> Multiplayer 1v1
+              </Link>
+              <Link to="/scoreboard" className="cta-ghost flex items-center gap-2">
+                <Trophy size={14} /> Scoreboard
+              </Link>
+            </div>
             <div className="text-xs text-muted-foreground">High Score: {highScore}</div>
+          </Overlay>
+        )}
+        {status === "name" && (
+          <Overlay key="name">
+            <h2 className="neon-cyan text-2xl font-black tracking-[0.2em]">SIAPA NAMAMU?</h2>
+            <p className="max-w-sm text-center text-xs text-muted-foreground">
+              Nama ini akan disimpan bersama skormu di Scoreboard.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                confirmNameAndPlay();
+              }}
+              className="flex w-full max-w-xs flex-col items-center gap-4"
+            >
+              <input
+                autoFocus
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value.slice(0, 24))}
+                placeholder="Nama pemain"
+                maxLength={24}
+                className="w-full rounded-xl border border-border/60 bg-background/60 px-4 py-3 text-center text-lg font-bold tracking-wider outline-none focus:border-[color:var(--neon-cyan)] focus:shadow-[0_0_18px_color-mix(in_oklch,var(--neon-cyan)_50%,transparent)]"
+              />
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  disabled={!sanitizeName(nameDraft)}
+                  className="cta disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Mulai
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatus("menu")}
+                  className="cta-ghost"
+                >
+                  Batal
+                </button>
+              </div>
+            </form>
           </Overlay>
         )}
         {status === "paused" && (
