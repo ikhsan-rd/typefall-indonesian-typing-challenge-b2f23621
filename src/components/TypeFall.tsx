@@ -620,9 +620,12 @@ export default function TypeFall() {
               <span className="font-bold">{wpm}</span>
             </div>
             <div className="flex gap-3">
-              <button onClick={startGame} className="cta">
+              <button onClick={restartGame} className="cta">
                 Main Lagi
               </button>
+              <Link to="/scoreboard" className="cta-ghost flex items-center gap-2">
+                <Trophy size={14} /> Scoreboard
+              </Link>
               <button onClick={goHome} className="cta-ghost">
                 Home
               </button>
