@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Keyboard, Gamepad2, Sparkles } from "lucide-react";
+import { Keyboard, Gamepad2, Sparkles, Trophy } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -89,9 +89,18 @@ function Home() {
               </p>
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-2 text-xs text-white/60 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
-            <span>v1.0 Beta</span>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/scoreboard"
+              className="inline-flex items-center gap-2 text-xs text-white/80 bg-white/5 px-3 py-1.5 rounded-full border border-white/10 hover:bg-white/10 hover:border-white/20 transition"
+            >
+              <Trophy className="w-3.5 h-3.5 text-amber-300" />
+              <span>Scoreboard</span>
+            </Link>
+            <div className="hidden sm:flex items-center gap-2 text-xs text-white/60 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
+              <span>v1.0 Beta</span>
+            </div>
           </div>
         </header>
 

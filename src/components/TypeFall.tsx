@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, Pause, Play, RotateCcw, Users } from "lucide-react";
+import { Home, Pause, Play, RotateCcw, Users, Trophy } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { getRandomWord, randomNonsense } from "@/lib/words";
 import { sfx } from "@/lib/sounds";
+import { submitScore, loadSavedName, saveName, sanitizeName } from "@/lib/scores";
 
 type FallObj = {
   id: number;
@@ -18,7 +19,7 @@ type FallObj = {
   bornAt: number;
 };
 
-type Status = "menu" | "playing" | "paused" | "over";
+type Status = "menu" | "name" | "playing" | "paused" | "over";
 
 const MAX_HP = 5;
 const FLOOR_Y = 92; // % from top
@@ -94,6 +95,9 @@ export default function TypeFall() {
     [],
   );
   const [hearts, setHearts] = useState<{ id: number; x: number; y: number }[]>([]);
+  const [playerName, setPlayerName] = useState<string>("");
+  const [nameDraft, setNameDraft] = useState<string>("");
+  const submittedRef = useRef<boolean>(false);
 
   const idRef = useRef(1);
   const partIdRef = useRef(1);
@@ -102,21 +106,40 @@ export default function TypeFall() {
   const lastSpawnRef = useRef(performance.now());
   const rafRef = useRef<number | null>(null);
 
-  // Load highscore
+  // Load highscore + saved name
   useEffect(() => {
     if (typeof window === "undefined") return;
     const v = window.localStorage.getItem("typefall:highscore");
     if (v) setHighScore(parseInt(v, 10) || 0);
+    const n = loadSavedName();
+    if (n) {
+      setPlayerName(n);
+      setNameDraft(n);
+    }
   }, []);
 
-  // Save highscore on game over
+  // Save highscore + submit score to scoreboard on game over
   useEffect(() => {
     if (status !== "over") return;
     if (score > highScore) {
       setHighScore(score);
       window.localStorage.setItem("typefall:highscore", String(score));
     }
-  }, [status, score, highScore]);
+    if (submittedRef.current) return;
+    submittedRef.current = true;
+    const name = sanitizeName(playerName);
+    if (!name) return;
+    const duration = Math.max(0, Math.round((performance.now() - startedAt) / 1000));
+    void submitScore({
+      player_name: name,
+      score,
+      level,
+      accuracy,
+      wpm,
+      duration_sec: duration,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   const triggerLevelBreather = useCallback((lvl: number, explode: boolean) => {
     setDisplayLevel(lvl);
@@ -165,12 +188,35 @@ export default function TypeFall() {
     setStartedAt(performance.now());
   }, []);
 
-  const startGame = useCallback(() => {
+  const beginPlay = useCallback(() => {
     reset();
+    submittedRef.current = false;
     setStatus("playing");
-    // Show "LV 1" breather at start
     triggerLevelBreather(1, false);
   }, [reset, triggerLevelBreather]);
+
+  const startGame = useCallback(() => {
+    // Buka dialog nama setiap kali user mulai bermain
+    setNameDraft(playerName || loadSavedName());
+    setStatus("name");
+  }, [playerName]);
+
+  const confirmNameAndPlay = useCallback(() => {
+    const clean = sanitizeName(nameDraft);
+    if (!clean) return;
+    setPlayerName(clean);
+    saveName(clean);
+    beginPlay();
+  }, [nameDraft, beginPlay]);
+
+  const restartGame = useCallback(() => {
+    // Restart pakai nama yang sudah ada (skip dialog)
+    if (sanitizeName(playerName)) {
+      beginPlay();
+    } else {
+      startGame();
+    }
+  }, [playerName, beginPlay, startGame]);
 
   const goHome = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -453,7 +499,7 @@ export default function TypeFall() {
             >
               {status === "paused" ? <Play size={16} /> : <Pause size={16} />}
             </IconBtn>
-            <IconBtn label="Restart" onClick={startGame}>
+            <IconBtn label="Restart" onClick={restartGame}>
               <RotateCcw size={16} />
             </IconBtn>
             <IconBtn label="Home" onClick={goHome}>
@@ -494,10 +540,55 @@ export default function TypeFall() {
             <button onClick={startGame} className="cta">
               Mulai Bermain
             </button>
-            <Link to="/multiplayer" className="cta-ghost flex items-center gap-2">
-              <Users size={14} /> Multiplayer 1v1
-            </Link>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Link to="/multiplayer" className="cta-ghost flex items-center gap-2">
+                <Users size={14} /> Multiplayer 1v1
+              </Link>
+              <Link to="/scoreboard" className="cta-ghost flex items-center gap-2">
+                <Trophy size={14} /> Scoreboard
+              </Link>
+            </div>
             <div className="text-xs text-muted-foreground">High Score: {highScore}</div>
+          </Overlay>
+        )}
+        {status === "name" && (
+          <Overlay key="name">
+            <h2 className="neon-cyan text-2xl font-black tracking-[0.2em]">SIAPA NAMAMU?</h2>
+            <p className="max-w-sm text-center text-xs text-muted-foreground">
+              Nama ini akan disimpan bersama skormu di Scoreboard.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                confirmNameAndPlay();
+              }}
+              className="flex w-full max-w-xs flex-col items-center gap-4"
+            >
+              <input
+                autoFocus
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value.slice(0, 24))}
+                placeholder="Nama pemain"
+                maxLength={24}
+                className="w-full rounded-xl border border-border/60 bg-background/60 px-4 py-3 text-center text-lg font-bold tracking-wider outline-none focus:border-[color:var(--neon-cyan)] focus:shadow-[0_0_18px_color-mix(in_oklch,var(--neon-cyan)_50%,transparent)]"
+              />
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  disabled={!sanitizeName(nameDraft)}
+                  className="cta disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Mulai
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatus("menu")}
+                  className="cta-ghost"
+                >
+                  Batal
+                </button>
+              </div>
+            </form>
           </Overlay>
         )}
         {status === "paused" && (
@@ -529,9 +620,12 @@ export default function TypeFall() {
               <span className="font-bold">{wpm}</span>
             </div>
             <div className="flex gap-3">
-              <button onClick={startGame} className="cta">
+              <button onClick={restartGame} className="cta">
                 Main Lagi
               </button>
+              <Link to="/scoreboard" className="cta-ghost flex items-center gap-2">
+                <Trophy size={14} /> Scoreboard
+              </Link>
               <button onClick={goHome} className="cta-ghost">
                 Home
               </button>
