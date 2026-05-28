@@ -499,7 +499,7 @@ export default function TypeFall() {
             >
               {status === "paused" ? <Play size={16} /> : <Pause size={16} />}
             </IconBtn>
-            <IconBtn label="Restart" onClick={startGame}>
+            <IconBtn label="Restart" onClick={restartGame}>
               <RotateCcw size={16} />
             </IconBtn>
             <IconBtn label="Home" onClick={goHome}>
