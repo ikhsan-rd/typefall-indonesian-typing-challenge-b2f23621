@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, Pause, Play, RotateCcw, Users } from "lucide-react";
+import { Home, Pause, Play, RotateCcw, Users, Trophy } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { getRandomWord, randomNonsense } from "@/lib/words";
 import { sfx } from "@/lib/sounds";
+import { submitScore, loadSavedName, saveName, sanitizeName } from "@/lib/scores";
 
 type FallObj = {
   id: number;
