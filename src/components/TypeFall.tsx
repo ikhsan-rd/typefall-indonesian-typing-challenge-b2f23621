@@ -95,6 +95,9 @@ export default function TypeFall() {
     [],
   );
   const [hearts, setHearts] = useState<{ id: number; x: number; y: number }[]>([]);
+  const [playerName, setPlayerName] = useState<string>("");
+  const [nameDraft, setNameDraft] = useState<string>("");
+  const submittedRef = useRef<boolean>(false);
 
   const idRef = useRef(1);
   const partIdRef = useRef(1);
