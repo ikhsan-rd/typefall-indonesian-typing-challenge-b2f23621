@@ -188,12 +188,35 @@ export default function TypeFall() {
     setStartedAt(performance.now());
   }, []);
 
-  const startGame = useCallback(() => {
+  const beginPlay = useCallback(() => {
     reset();
+    submittedRef.current = false;
     setStatus("playing");
-    // Show "LV 1" breather at start
     triggerLevelBreather(1, false);
   }, [reset, triggerLevelBreather]);
+
+  const startGame = useCallback(() => {
+    // Buka dialog nama setiap kali user mulai bermain
+    setNameDraft(playerName || loadSavedName());
+    setStatus("name");
+  }, [playerName]);
+
+  const confirmNameAndPlay = useCallback(() => {
+    const clean = sanitizeName(nameDraft);
+    if (!clean) return;
+    setPlayerName(clean);
+    saveName(clean);
+    beginPlay();
+  }, [nameDraft, beginPlay]);
+
+  const restartGame = useCallback(() => {
+    // Restart pakai nama yang sudah ada (skip dialog)
+    if (sanitizeName(playerName)) {
+      beginPlay();
+    } else {
+      startGame();
+    }
+  }, [playerName, beginPlay, startGame]);
 
   const goHome = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
