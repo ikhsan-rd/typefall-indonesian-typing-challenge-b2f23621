@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Keyboard, Gamepad2, Sparkles } from "lucide-react";
+import { Keyboard, Gamepad2, Sparkles, Trophy } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Home,
