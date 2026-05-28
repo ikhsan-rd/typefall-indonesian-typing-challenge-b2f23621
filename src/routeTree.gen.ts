@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TypefallRouteImport } from './routes/typefall'
+import { Route as ScoreboardRouteImport } from './routes/scoreboard'
 import { Route as MultiplayerRouteImport } from './routes/multiplayer'
 import { Route as IndexRouteImport } from './routes/index'
 
 const TypefallRoute = TypefallRouteImport.update({
   id: '/typefall',
   path: '/typefall',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScoreboardRoute = ScoreboardRouteImport.update({
+  id: '/scoreboard',
+  path: '/scoreboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MultiplayerRoute = MultiplayerRouteImport.update({
@@ -32,30 +38,34 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/multiplayer': typeof MultiplayerRoute
+  '/scoreboard': typeof ScoreboardRoute
   '/typefall': typeof TypefallRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/multiplayer': typeof MultiplayerRoute
+  '/scoreboard': typeof ScoreboardRoute
   '/typefall': typeof TypefallRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/multiplayer': typeof MultiplayerRoute
+  '/scoreboard': typeof ScoreboardRoute
   '/typefall': typeof TypefallRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/multiplayer' | '/typefall'
+  fullPaths: '/' | '/multiplayer' | '/scoreboard' | '/typefall'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/multiplayer' | '/typefall'
-  id: '__root__' | '/' | '/multiplayer' | '/typefall'
+  to: '/' | '/multiplayer' | '/scoreboard' | '/typefall'
+  id: '__root__' | '/' | '/multiplayer' | '/scoreboard' | '/typefall'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   MultiplayerRoute: typeof MultiplayerRoute
+  ScoreboardRoute: typeof ScoreboardRoute
   TypefallRoute: typeof TypefallRoute
 }
 
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/typefall'
       fullPath: '/typefall'
       preLoaderRoute: typeof TypefallRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/scoreboard': {
+      id: '/scoreboard'
+      path: '/scoreboard'
+      fullPath: '/scoreboard'
+      preLoaderRoute: typeof ScoreboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/multiplayer': {
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   MultiplayerRoute: MultiplayerRoute,
+  ScoreboardRoute: ScoreboardRoute,
   TypefallRoute: TypefallRoute,
 }
 export const routeTree = rootRouteImport
