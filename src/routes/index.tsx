@@ -91,11 +91,11 @@ function Home() {
           </div>
           <div className="flex items-center gap-2">
             <Link
-              to="/scoreboard"
+              to="/leaderboard"
               className="inline-flex items-center gap-2 text-xs text-white/80 bg-white/5 px-3 py-1.5 rounded-full border border-white/10 hover:bg-white/10 hover:border-white/20 transition"
             >
               <Trophy className="w-3.5 h-3.5 text-amber-300" />
-              <span>Scoreboard</span>
+              <span>Leaderboard</span>
             </Link>
             <div className="hidden sm:flex items-center gap-2 text-xs text-white/60 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
               <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
@@ -124,52 +124,54 @@ function Home() {
           </p>
         </section>
 
-        {/* Games Grid */}
+        {/* Games List — Vertical Flex */}
         <section>
           <div className="flex items-end justify-between mb-6">
             <h3 className="text-2xl font-bold">Daftar Game</h3>
             <span className="text-sm text-white/50">{GAMES.filter((g) => g.available).length} game tersedia</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="flex flex-col gap-4 max-w-xl mx-auto">
             {GAMES.map((g) => {
               const card = (
                 <div
-                  className={`group relative h-full rounded-2xl p-6 border border-white/10 bg-white/[0.03] backdrop-blur-sm transition-all duration-300 ${
+                  className={`group relative flex items-center gap-5 rounded-2xl p-5 border border-white/10 bg-white/[0.03] backdrop-blur-sm transition-all duration-300 ${
                     g.available
-                      ? "hover:border-white/30 hover:-translate-y-1 hover:bg-white/[0.06] cursor-pointer"
+                      ? "hover:border-white/30 hover:bg-white/[0.06] cursor-pointer"
                       : "opacity-60 cursor-not-allowed"
                   }`}
                 >
                   {/* Gradient backdrop on hover */}
                   <div
-                    className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${g.gradient} opacity-0 group-hover:opacity-20 transition-opacity duration-300 pointer-events-none`}
+                    className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${g.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300 pointer-events-none`}
                   />
-                  <div className="relative">
-                    <div className="flex items-start justify-between mb-5">
-                      <div
-                        className={`w-14 h-14 rounded-xl bg-gradient-to-br ${g.gradient} flex items-center justify-center shadow-lg`}
-                      >
-                        {g.icon}
-                      </div>
-                      {g.badge && (
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-white/10 border border-white/20 text-white/80">
-                          {g.badge}
-                        </span>
-                      )}
+                  <div className="relative flex items-center gap-5 w-full">
+                    <div
+                      className={`shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br ${g.gradient} flex items-center justify-center shadow-lg`}
+                    >
+                      {g.icon}
                     </div>
-                    <h4 className="text-xl font-bold mb-1">{g.title}</h4>
-                    <p className="text-xs uppercase tracking-wider text-white/40 mb-3">
-                      {g.tagline}
-                    </p>
-                    <p className="text-sm text-white/60 leading-relaxed mb-5">{g.description}</p>
-                    <div className="flex items-center gap-2 text-sm font-semibold">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-lg font-bold">{g.title}</h4>
+                        {g.badge && (
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/10 border border-white/20 text-white/80">
+                            {g.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs uppercase tracking-wider text-white/40 mb-1">
+                        {g.tagline}
+                      </p>
+                      <p className="text-sm text-white/60 leading-relaxed line-clamp-2">{g.description}</p>
+                    </div>
+                    <div className="shrink-0">
                       {g.available ? (
-                        <span className="text-cyan-300 group-hover:text-white transition-colors">
+                        <span className="text-cyan-300 group-hover:text-white transition-colors text-sm font-semibold">
                           Mainkan →
                         </span>
                       ) : (
-                        <span className="text-white/40">Segera Hadir</span>
+                        <span className="text-white/40 text-sm">Segera Hadir</span>
                       )}
                     </div>
                   </div>
@@ -177,11 +179,11 @@ function Home() {
               );
 
               return g.available ? (
-                <Link key={g.id} to={g.to} className="block h-full">
+                <Link key={g.id} to={g.to} className="block">
                   {card}
                 </Link>
               ) : (
-                <div key={g.id} className="h-full">
+                <div key={g.id}>
                   {card}
                 </div>
               );
