@@ -19,7 +19,7 @@ type FallObj = {
   bornAt: number;
 };
 
-type Status = "menu" | "playing" | "paused" | "over";
+type Status = "menu" | "name" | "playing" | "paused" | "over";
 
 const MAX_HP = 5;
 const FLOOR_Y = 92; // % from top
