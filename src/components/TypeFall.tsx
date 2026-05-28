@@ -106,21 +106,40 @@ export default function TypeFall() {
   const lastSpawnRef = useRef(performance.now());
   const rafRef = useRef<number | null>(null);
 
-  // Load highscore
+  // Load highscore + saved name
   useEffect(() => {
     if (typeof window === "undefined") return;
     const v = window.localStorage.getItem("typefall:highscore");
     if (v) setHighScore(parseInt(v, 10) || 0);
+    const n = loadSavedName();
+    if (n) {
+      setPlayerName(n);
+      setNameDraft(n);
+    }
   }, []);
 
-  // Save highscore on game over
+  // Save highscore + submit score to scoreboard on game over
   useEffect(() => {
     if (status !== "over") return;
     if (score > highScore) {
       setHighScore(score);
       window.localStorage.setItem("typefall:highscore", String(score));
     }
-  }, [status, score, highScore]);
+    if (submittedRef.current) return;
+    submittedRef.current = true;
+    const name = sanitizeName(playerName);
+    if (!name) return;
+    const duration = Math.max(0, Math.round((performance.now() - startedAt) / 1000));
+    void submitScore({
+      player_name: name,
+      score,
+      level,
+      accuracy,
+      wpm,
+      duration_sec: duration,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   const triggerLevelBreather = useCallback((lvl: number, explode: boolean) => {
     setDisplayLevel(lvl);
