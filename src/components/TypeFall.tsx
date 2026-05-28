@@ -118,7 +118,7 @@ export default function TypeFall() {
     }
   }, []);
 
-  // Save highscore + submit score to scoreboard on game over
+  // Save highscore + submit score to leaderboard on game over
   useEffect(() => {
     if (status !== "over") return;
     if (score > highScore) {
@@ -538,14 +538,14 @@ export default function TypeFall() {
               Ketik kata sebelum menyentuh garis.
             </p>
             <button onClick={startGame} className="cta">
-              Mulai Bermain
+              Solo Player
             </button>
             <div className="flex flex-wrap items-center justify-center gap-3">
-              <Link to="/multiplayer" className="cta-ghost flex items-center gap-2">
+              <Link to="/multiplayer" className="cta-violet flex items-center gap-2">
                 <Users size={14} /> Multiplayer 1v1
               </Link>
-              <Link to="/scoreboard" className="cta-ghost flex items-center gap-2">
-                <Trophy size={14} /> Scoreboard
+              <Link to="/leaderboard" className="cta-amber flex items-center gap-2">
+                <Trophy size={14} /> Leaderboard
               </Link>
             </div>
             <div className="text-xs text-muted-foreground">High Score: {highScore}</div>
@@ -555,7 +555,7 @@ export default function TypeFall() {
           <Overlay key="name">
             <h2 className="neon-cyan text-2xl font-black tracking-[0.2em]">SIAPA NAMAMU?</h2>
             <p className="max-w-sm text-center text-xs text-muted-foreground">
-              Nama ini akan disimpan bersama skormu di Scoreboard.
+              Nama ini akan disimpan bersama skormu di Leaderboard.
             </p>
             <form
               onSubmit={(e) => {
@@ -619,12 +619,12 @@ export default function TypeFall() {
               <span className="text-muted-foreground">WPM</span>
               <span className="font-bold">{wpm}</span>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-3">
               <button onClick={restartGame} className="cta">
                 Main Lagi
               </button>
-              <Link to="/scoreboard" className="cta-ghost flex items-center gap-2">
-                <Trophy size={14} /> Scoreboard
+              <Link to="/leaderboard" className="cta-amber flex items-center gap-2">
+                <Trophy size={14} /> Leaderboard
               </Link>
               <button onClick={goHome} className="cta-ghost">
                 Home
@@ -680,6 +680,34 @@ export default function TypeFall() {
           transition: transform 0.15s ease, background 0.2s ease;
         }
         .cta-ghost:hover { background: color-mix(in oklch, white 12%, transparent); transform: translateY(-1px); }
+        .cta-violet {
+          padding: 0.75rem 1.5rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.25em;
+          font-size: 0.8rem;
+          border-radius: 999px;
+          color: oklch(0.95 0.04 300);
+          background: linear-gradient(135deg, oklch(0.5 0.18 300), oklch(0.4 0.15 270));
+          border: 1px solid color-mix(in oklch, oklch(0.5 0.18 300) 40%, transparent);
+          box-shadow: 0 0 20px color-mix(in oklch, oklch(0.5 0.18 300) 25%, transparent);
+          transition: transform 0.15s ease, box-shadow 0.2s ease;
+        }
+        .cta-violet:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 0 30px color-mix(in oklch, oklch(0.5 0.18 300) 40%, transparent); }
+        .cta-amber {
+          padding: 0.75rem 1.5rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.25em;
+          font-size: 0.8rem;
+          border-radius: 999px;
+          color: oklch(0.15 0.04 80);
+          background: linear-gradient(135deg, oklch(0.75 0.14 80), oklch(0.65 0.12 60));
+          border: 1px solid color-mix(in oklch, oklch(0.75 0.14 80) 40%, transparent);
+          box-shadow: 0 0 20px color-mix(in oklch, oklch(0.75 0.14 80) 25%, transparent);
+          transition: transform 0.15s ease, box-shadow 0.2s ease;
+        }
+        .cta-amber:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 0 30px color-mix(in oklch, oklch(0.75 0.14 80) 40%, transparent); }
       `}</style>
     </div>
   );

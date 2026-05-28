@@ -3,16 +3,16 @@ import { useEffect, useState } from "react";
 import { Trophy, ArrowLeft, RefreshCw, Medal } from "lucide-react";
 import { fetchTopScores, type ScoreRow } from "@/lib/scores";
 
-export const Route = createFileRoute("/scoreboard")({
-  component: ScoreboardPage,
+export const Route = createFileRoute("/leaderboard")({
+  component: LeaderboardPage,
   head: () => ({
     meta: [
-      { title: "Scoreboard — SanGames" },
+      { title: "Leaderboard — SanGames" },
       {
         name: "description",
         content: "Papan skor tertinggi pemain SanGames untuk semua game.",
       },
-      { property: "og:title", content: "Scoreboard — SanGames" },
+      { property: "og:title", content: "Leaderboard — SanGames" },
       {
         property: "og:description",
         content: "Lihat skor tertinggi pemain TypeFall di SanGames.",
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/scoreboard")({
   }),
 });
 
-function ScoreboardPage() {
+function LeaderboardPage() {
   const [rows, setRows] = useState<ScoreRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -64,7 +64,7 @@ function ScoreboardPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 shadow-lg shadow-amber-500/30 mb-4">
             <Trophy className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight">Scoreboard</h1>
+          <h1 className="text-4xl md:text-5xl font-black tracking-tight">Leaderboard</h1>
           <p className="text-sm text-white/50 mt-2 uppercase tracking-[0.3em]">
             TypeFall · Top Players
           </p>

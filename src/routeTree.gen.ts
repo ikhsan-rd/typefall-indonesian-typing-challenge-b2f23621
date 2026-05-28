@@ -10,8 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TypefallRouteImport } from './routes/typefall'
-import { Route as ScoreboardRouteImport } from './routes/scoreboard'
 import { Route as MultiplayerRouteImport } from './routes/multiplayer'
+import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as IndexRouteImport } from './routes/index'
 
 const TypefallRoute = TypefallRouteImport.update({
@@ -19,14 +19,14 @@ const TypefallRoute = TypefallRouteImport.update({
   path: '/typefall',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ScoreboardRoute = ScoreboardRouteImport.update({
-  id: '/scoreboard',
-  path: '/scoreboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const MultiplayerRoute = MultiplayerRouteImport.update({
   id: '/multiplayer',
   path: '/multiplayer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeaderboardRoute = LeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -37,35 +37,35 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/multiplayer': typeof MultiplayerRoute
-  '/scoreboard': typeof ScoreboardRoute
   '/typefall': typeof TypefallRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/multiplayer': typeof MultiplayerRoute
-  '/scoreboard': typeof ScoreboardRoute
   '/typefall': typeof TypefallRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/multiplayer': typeof MultiplayerRoute
-  '/scoreboard': typeof ScoreboardRoute
   '/typefall': typeof TypefallRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/multiplayer' | '/scoreboard' | '/typefall'
+  fullPaths: '/' | '/leaderboard' | '/multiplayer' | '/typefall'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/multiplayer' | '/scoreboard' | '/typefall'
-  id: '__root__' | '/' | '/multiplayer' | '/scoreboard' | '/typefall'
+  to: '/' | '/leaderboard' | '/multiplayer' | '/typefall'
+  id: '__root__' | '/' | '/leaderboard' | '/multiplayer' | '/typefall'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LeaderboardRoute: typeof LeaderboardRoute
   MultiplayerRoute: typeof MultiplayerRoute
-  ScoreboardRoute: typeof ScoreboardRoute
   TypefallRoute: typeof TypefallRoute
 }
 
@@ -78,18 +78,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TypefallRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/scoreboard': {
-      id: '/scoreboard'
-      path: '/scoreboard'
-      fullPath: '/scoreboard'
-      preLoaderRoute: typeof ScoreboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/multiplayer': {
       id: '/multiplayer'
       path: '/multiplayer'
       fullPath: '/multiplayer'
       preLoaderRoute: typeof MultiplayerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leaderboard': {
+      id: '/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof LeaderboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -104,10 +104,20 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LeaderboardRoute: LeaderboardRoute,
   MultiplayerRoute: MultiplayerRoute,
-  ScoreboardRoute: ScoreboardRoute,
   TypefallRoute: TypefallRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
