@@ -680,6 +680,34 @@ export default function TypeFall() {
           transition: transform 0.15s ease, background 0.2s ease;
         }
         .cta-ghost:hover { background: color-mix(in oklch, white 12%, transparent); transform: translateY(-1px); }
+        .cta-violet {
+          padding: 0.75rem 1.5rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.25em;
+          font-size: 0.8rem;
+          border-radius: 999px;
+          color: oklch(0.95 0.04 300);
+          background: linear-gradient(135deg, oklch(0.5 0.18 300), oklch(0.4 0.15 270));
+          border: 1px solid color-mix(in oklch, oklch(0.5 0.18 300) 40%, transparent);
+          box-shadow: 0 0 20px color-mix(in oklch, oklch(0.5 0.18 300) 25%, transparent);
+          transition: transform 0.15s ease, box-shadow 0.2s ease;
+        }
+        .cta-violet:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 0 30px color-mix(in oklch, oklch(0.5 0.18 300) 40%, transparent); }
+        .cta-amber {
+          padding: 0.75rem 1.5rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.25em;
+          font-size: 0.8rem;
+          border-radius: 999px;
+          color: oklch(0.15 0.04 80);
+          background: linear-gradient(135deg, oklch(0.75 0.14 80), oklch(0.65 0.12 60));
+          border: 1px solid color-mix(in oklch, oklch(0.75 0.14 80) 40%, transparent);
+          box-shadow: 0 0 20px color-mix(in oklch, oklch(0.75 0.14 80) 25%, transparent);
+          transition: transform 0.15s ease, box-shadow 0.2s ease;
+        }
+        .cta-amber:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 0 30px color-mix(in oklch, oklch(0.75 0.14 80) 40%, transparent); }
       `}</style>
     </div>
   );
