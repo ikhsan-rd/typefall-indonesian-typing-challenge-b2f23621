@@ -537,14 +537,14 @@ export default function TypeFall() {
             <p className="max-w-md text-center text-sm leading-relaxed text-muted-foreground">
               Ketik kata sebelum menyentuh garis.
             </p>
-            <button onClick={startGame} className="cta">
-              Solo Player
-            </button>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <Link to="/multiplayer" className="cta-violet flex items-center gap-2">
+            <div className="flex flex-col items-center gap-3 w-full max-w-xs">
+              <button onClick={startGame} className="cta w-full">
+                Solo Player
+              </button>
+              <Link to="/multiplayer" className="cta-violet flex items-center justify-center gap-2 w-full">
                 <Users size={14} /> Multiplayer 1v1
               </Link>
-              <Link to="/leaderboard" className="cta-amber flex items-center gap-2">
+              <Link to="/leaderboard" className="cta-amber flex items-center justify-center gap-2 w-full">
                 <Trophy size={14} /> Leaderboard
               </Link>
             </div>
