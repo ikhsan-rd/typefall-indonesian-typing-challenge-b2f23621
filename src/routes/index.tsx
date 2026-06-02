@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Keyboard, Gamepad2, Sparkles, Trophy } from "lucide-react";
+import { Keyboard, Gamepad2, Sparkles, Trophy, Music } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -43,6 +43,18 @@ const GAMES: GameCard[] = [
     badge: "Populer",
     icon: <Keyboard className="w-8 h-8" />,
     gradient: "from-cyan-500 via-blue-500 to-indigo-600",
+    available: true,
+  },
+  {
+    id: "rhythm",
+    title: "Rhythm Hero",
+    tagline: "6-Lane Rhythm Game",
+    description:
+      "Tekan A S D J K L mengikuti irama lagu. Beatmap otomatis dibuat dari analisis audio — pilih lagu atau pakai URL mp3 sendiri.",
+    to: "/rhythm",
+    badge: "Baru",
+    icon: <Music className="w-8 h-8" />,
+    gradient: "from-fuchsia-500 via-pink-500 to-rose-500",
     available: true,
   },
   {

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TypefallRouteImport } from './routes/typefall'
+import { Route as RhythmRouteImport } from './routes/rhythm'
 import { Route as MultiplayerRouteImport } from './routes/multiplayer'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as IndexRouteImport } from './routes/index'
@@ -17,6 +18,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const TypefallRoute = TypefallRouteImport.update({
   id: '/typefall',
   path: '/typefall',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RhythmRoute = RhythmRouteImport.update({
+  id: '/rhythm',
+  path: '/rhythm',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MultiplayerRoute = MultiplayerRouteImport.update({
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/leaderboard': typeof LeaderboardRoute
   '/multiplayer': typeof MultiplayerRoute
+  '/rhythm': typeof RhythmRoute
   '/typefall': typeof TypefallRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/leaderboard': typeof LeaderboardRoute
   '/multiplayer': typeof MultiplayerRoute
+  '/rhythm': typeof RhythmRoute
   '/typefall': typeof TypefallRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,28 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/leaderboard': typeof LeaderboardRoute
   '/multiplayer': typeof MultiplayerRoute
+  '/rhythm': typeof RhythmRoute
   '/typefall': typeof TypefallRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/leaderboard' | '/multiplayer' | '/typefall'
+  fullPaths: '/' | '/leaderboard' | '/multiplayer' | '/rhythm' | '/typefall'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/leaderboard' | '/multiplayer' | '/typefall'
-  id: '__root__' | '/' | '/leaderboard' | '/multiplayer' | '/typefall'
+  to: '/' | '/leaderboard' | '/multiplayer' | '/rhythm' | '/typefall'
+  id:
+    | '__root__'
+    | '/'
+    | '/leaderboard'
+    | '/multiplayer'
+    | '/rhythm'
+    | '/typefall'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LeaderboardRoute: typeof LeaderboardRoute
   MultiplayerRoute: typeof MultiplayerRoute
+  RhythmRoute: typeof RhythmRoute
   TypefallRoute: typeof TypefallRoute
 }
 
@@ -76,6 +92,13 @@ declare module '@tanstack/react-router' {
       path: '/typefall'
       fullPath: '/typefall'
       preLoaderRoute: typeof TypefallRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rhythm': {
+      id: '/rhythm'
+      path: '/rhythm'
+      fullPath: '/rhythm'
+      preLoaderRoute: typeof RhythmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/multiplayer': {
@@ -106,18 +129,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LeaderboardRoute: LeaderboardRoute,
   MultiplayerRoute: MultiplayerRoute,
+  RhythmRoute: RhythmRoute,
   TypefallRoute: TypefallRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
