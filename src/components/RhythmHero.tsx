@@ -127,8 +127,11 @@ function playHit(freq: number) {
 
 export default function RhythmHero() {
   const [status, setStatus] = useState<"menu" | "loading" | "ready" | "playing" | "paused" | "over" | "name">("menu");
-  const [track, setTrack] = useState<TrackPreset>(PRESETS[0]);
-  const [customUrl, setCustomUrl] = useState("");
+  const [track, setTrack] = useState<AudiusTrack | null>(null);
+  const [tracks, setTracks] = useState<AudiusTrack[]>([]);
+  const [tracksLoading, setTracksLoading] = useState(false);
+  const [tracksError, setTracksError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
 
@@ -144,10 +147,10 @@ export default function RhythmHero() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const notesRef = useRef<Note[]>([]);
-  const startedAtRef = useRef<number>(0); // perf.now ms when play started
-  const pauseOffsetRef = useRef<number>(0); // seconds played before pause
+  const startedAtRef = useRef<number>(0);
+  const pauseOffsetRef = useRef<number>(0);
   const rafRef = useRef<number | null>(null);
-  const [, force] = useState(0); // force re-render for falling notes
+  const [, force] = useState(0);
   const [judgements, setJudgements] = useState<Judgement[]>([]);
   const [laneFlash, setLaneFlash] = useState<number[]>([0, 0, 0, 0, 0, 0]);
   const submittedRef = useRef(false);
@@ -155,6 +158,43 @@ export default function RhythmHero() {
   useEffect(() => {
     setPlayerName(loadSavedName());
   }, []);
+
+  const loadTrending = useCallback(async () => {
+    setTracksLoading(true);
+    setTracksError(null);
+    try {
+      const list = await fetchTrending(12);
+      setTracks(list);
+      if (!track && list[0]) setTrack(list[0]);
+    } catch (e: any) {
+      setTracksError(e?.message || "Gagal memuat lagu dari Audius");
+    } finally {
+      setTracksLoading(false);
+    }
+  }, [track]);
+
+  useEffect(() => {
+    loadTrending();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const runSearch = useCallback(async () => {
+    if (!query.trim()) {
+      loadTrending();
+      return;
+    }
+    setTracksLoading(true);
+    setTracksError(null);
+    try {
+      const list = await searchTracks(query.trim(), 12);
+      setTracks(list);
+    } catch (e: any) {
+      setTracksError(e?.message || "Gagal mencari lagu");
+    } finally {
+      setTracksLoading(false);
+    }
+  }, [query, loadTrending]);
+
 
   /* ---------- Time helper ---------- */
   const getNow = useCallback(() => {
