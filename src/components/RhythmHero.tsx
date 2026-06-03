@@ -396,7 +396,7 @@ export default function RhythmHero() {
     const accuracy = total > 0 ? Math.round(((perfect + good * 0.5) / total) * 100) : 0;
     const duration = Math.round(audioRef.current?.duration ?? 0);
     submitScore({
-      game: "rhythmhero",
+      game: "typinghero",
       player_name: playerName,
       score,
       level: maxCombo,
