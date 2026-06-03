@@ -444,7 +444,7 @@ export default function RhythmHero() {
         <div className="relative z-10 max-w-2xl mx-auto px-6 py-10">
           <h1 className="text-4xl md:text-5xl font-black tracking-tight text-center mb-2">
             <span className="bg-gradient-to-r from-fuchsia-400 via-cyan-300 to-amber-300 bg-clip-text text-transparent">
-              Rhythm Hero
+              Typing Hero
             </span>
           </h1>
           <p className="text-center text-white/60 mb-8 text-sm">
@@ -452,47 +452,65 @@ export default function RhythmHero() {
             <kbd className="px-1.5 py-0.5 rounded bg-white/10">J K L</kbd> tepat saat not menyentuh garis
           </p>
 
-          <div className="space-y-3 mb-6">
-            <p className="text-xs uppercase tracking-widest text-white/40">Pilih Lagu</p>
-            {PRESETS.map((p) => (
+          <div className="space-y-2 mb-4">
+            <p className="text-xs uppercase tracking-widest text-white/40">Cari Lagu di Audius</p>
+            <div className="flex gap-2">
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && runSearch()}
+                placeholder="Judul lagu atau artis…"
+                className="bg-white/5 border-white/10"
+              />
+              <Button variant="secondary" onClick={runSearch}>
+                <Search className="w-4 h-4" />
+              </Button>
+              <Button variant="outline" className="border-white/20 bg-white/5" onClick={loadTrending}>
+                Trending
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2 mb-6 max-h-[50vh] overflow-y-auto pr-1">
+            {tracksLoading && (
+              <div className="flex items-center justify-center py-10 text-white/60 gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" /> Memuat lagu…
+              </div>
+            )}
+            {tracksError && (
+              <div className="text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg p-3">
+                {tracksError}
+              </div>
+            )}
+            {!tracksLoading && !tracksError && tracks.length === 0 && (
+              <div className="text-center text-white/50 py-10 text-sm">Tidak ada lagu ditemukan.</div>
+            )}
+            {tracks.map((p) => (
               <button
                 key={p.id}
                 onClick={() => setTrack(p)}
-                className={`w-full text-left rounded-xl p-4 border transition flex items-center justify-between ${
-                  track.id === p.id
+                className={`w-full text-left rounded-xl p-3 border transition flex items-center gap-3 ${
+                  track?.id === p.id
                     ? "border-fuchsia-400/60 bg-fuchsia-500/10"
                     : "border-white/10 bg-white/5 hover:border-white/30"
                 }`}
               >
-                <div>
-                  <div className="font-bold">{p.title}</div>
-                  <div className="text-xs text-white/50">{p.artist}</div>
+                {p.artwork ? (
+                  <img src={p.artwork} alt="" className="w-12 h-12 rounded-md object-cover" />
+                ) : (
+                  <div className="w-12 h-12 rounded-md bg-white/10 flex items-center justify-center">
+                    <Music className="w-5 h-5 text-white/40" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold truncate">{p.title}</div>
+                  <div className="text-xs text-white/50 truncate">{p.artist}</div>
                 </div>
-                <Music className="w-4 h-4 text-white/40" />
+                <div className="text-xs text-white/40 tabular-nums">
+                  {Math.floor(p.duration / 60)}:{String(p.duration % 60).padStart(2, "0")}
+                </div>
               </button>
             ))}
-          </div>
-
-          <div className="space-y-2 mb-6">
-            <p className="text-xs uppercase tracking-widest text-white/40">Atau URL audio (mp3, harus mengizinkan CORS)</p>
-            <div className="flex gap-2">
-              <Input
-                value={customUrl}
-                onChange={(e) => setCustomUrl(e.target.value)}
-                placeholder="https://.../song.mp3"
-                className="bg-white/5 border-white/10"
-              />
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  if (customUrl.trim()) {
-                    setTrack({ id: "custom", title: "Custom Track", artist: customUrl, url: customUrl.trim() });
-                  }
-                }}
-              >
-                Pakai
-              </Button>
-            </div>
           </div>
 
           {loadError && (
@@ -502,11 +520,13 @@ export default function RhythmHero() {
           )}
 
           <Button
-            onClick={() => loadTrack(track.url)}
-            className="w-full h-12 text-base font-bold bg-gradient-to-r from-fuchsia-500 to-cyan-500 hover:opacity-90"
+            disabled={!track}
+            onClick={() => track && loadTrack(track.streamUrl)}
+            className="w-full h-12 text-base font-bold bg-gradient-to-r from-fuchsia-500 to-cyan-500 hover:opacity-90 disabled:opacity-50"
           >
             Muat & Siapkan
           </Button>
+
         </div>
       )}
 
