@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Play, Pause, RotateCcw, Music, Trophy, Loader2 } from "lucide-react";
+import { ArrowLeft, Play, Pause, RotateCcw, Music, Trophy, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { submitScore, loadSavedName, saveName, sanitizeName } from "@/lib/scores";
+import { fetchTrending, searchTracks, type AudiusTrack } from "@/lib/audius";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 
 /* ============================================================
-   RhythmHero — 6-lane falling notes rhythm game
+   TypingHero — 6-lane falling notes game powered by Audius
    Keys: A S D  J K L
    ============================================================ */
 
@@ -34,16 +35,6 @@ const LANE_RING = [
   "shadow-cyan-400/60",
   "shadow-indigo-400/60",
   "shadow-fuchsia-500/60",
-];
-
-type TrackPreset = { id: string; title: string; artist: string; url: string };
-
-// SoundHelix royalty-free, CORS-enabled
-const PRESETS: TrackPreset[] = [
-  { id: "sh1", title: "Neon Pulse", artist: "SoundHelix #1", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
-  { id: "sh2", title: "Cyber Drive", artist: "SoundHelix #2", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
-  { id: "sh3", title: "Midnight Run", artist: "SoundHelix #3", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" },
-  { id: "sh4", title: "Echo Bloom", artist: "SoundHelix #4", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3" },
 ];
 
 type Note = {
@@ -136,8 +127,11 @@ function playHit(freq: number) {
 
 export default function RhythmHero() {
   const [status, setStatus] = useState<"menu" | "loading" | "ready" | "playing" | "paused" | "over" | "name">("menu");
-  const [track, setTrack] = useState<TrackPreset>(PRESETS[0]);
-  const [customUrl, setCustomUrl] = useState("");
+  const [track, setTrack] = useState<AudiusTrack | null>(null);
+  const [tracks, setTracks] = useState<AudiusTrack[]>([]);
+  const [tracksLoading, setTracksLoading] = useState(false);
+  const [tracksError, setTracksError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
 
@@ -153,10 +147,10 @@ export default function RhythmHero() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const notesRef = useRef<Note[]>([]);
-  const startedAtRef = useRef<number>(0); // perf.now ms when play started
-  const pauseOffsetRef = useRef<number>(0); // seconds played before pause
+  const startedAtRef = useRef<number>(0);
+  const pauseOffsetRef = useRef<number>(0);
   const rafRef = useRef<number | null>(null);
-  const [, force] = useState(0); // force re-render for falling notes
+  const [, force] = useState(0);
   const [judgements, setJudgements] = useState<Judgement[]>([]);
   const [laneFlash, setLaneFlash] = useState<number[]>([0, 0, 0, 0, 0, 0]);
   const submittedRef = useRef(false);
@@ -164,6 +158,43 @@ export default function RhythmHero() {
   useEffect(() => {
     setPlayerName(loadSavedName());
   }, []);
+
+  const loadTrending = useCallback(async () => {
+    setTracksLoading(true);
+    setTracksError(null);
+    try {
+      const list = await fetchTrending(12);
+      setTracks(list);
+      if (!track && list[0]) setTrack(list[0]);
+    } catch (e: any) {
+      setTracksError(e?.message || "Gagal memuat lagu dari Audius");
+    } finally {
+      setTracksLoading(false);
+    }
+  }, [track]);
+
+  useEffect(() => {
+    loadTrending();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const runSearch = useCallback(async () => {
+    if (!query.trim()) {
+      loadTrending();
+      return;
+    }
+    setTracksLoading(true);
+    setTracksError(null);
+    try {
+      const list = await searchTracks(query.trim(), 12);
+      setTracks(list);
+    } catch (e: any) {
+      setTracksError(e?.message || "Gagal mencari lagu");
+    } finally {
+      setTracksLoading(false);
+    }
+  }, [query, loadTrending]);
+
 
   /* ---------- Time helper ---------- */
   const getNow = useCallback(() => {
@@ -365,7 +396,7 @@ export default function RhythmHero() {
     const accuracy = total > 0 ? Math.round(((perfect + good * 0.5) / total) * 100) : 0;
     const duration = Math.round(audioRef.current?.duration ?? 0);
     submitScore({
-      game: "rhythmhero",
+      game: "typinghero",
       player_name: playerName,
       score,
       level: maxCombo,
@@ -398,7 +429,7 @@ export default function RhythmHero() {
         </Link>
         <div className="flex items-center gap-2 text-sm">
           <Music className="w-4 h-4 text-fuchsia-400" />
-          <span className="font-bold tracking-wider">RHYTHM HERO</span>
+          <span className="font-bold tracking-wider">TYPING HERO</span>
         </div>
         <Link
           to="/leaderboard"
@@ -413,7 +444,7 @@ export default function RhythmHero() {
         <div className="relative z-10 max-w-2xl mx-auto px-6 py-10">
           <h1 className="text-4xl md:text-5xl font-black tracking-tight text-center mb-2">
             <span className="bg-gradient-to-r from-fuchsia-400 via-cyan-300 to-amber-300 bg-clip-text text-transparent">
-              Rhythm Hero
+              Typing Hero
             </span>
           </h1>
           <p className="text-center text-white/60 mb-8 text-sm">
@@ -421,47 +452,65 @@ export default function RhythmHero() {
             <kbd className="px-1.5 py-0.5 rounded bg-white/10">J K L</kbd> tepat saat not menyentuh garis
           </p>
 
-          <div className="space-y-3 mb-6">
-            <p className="text-xs uppercase tracking-widest text-white/40">Pilih Lagu</p>
-            {PRESETS.map((p) => (
+          <div className="space-y-2 mb-4">
+            <p className="text-xs uppercase tracking-widest text-white/40">Cari Lagu di Audius</p>
+            <div className="flex gap-2">
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && runSearch()}
+                placeholder="Judul lagu atau artis…"
+                className="bg-white/5 border-white/10"
+              />
+              <Button variant="secondary" onClick={runSearch}>
+                <Search className="w-4 h-4" />
+              </Button>
+              <Button variant="outline" className="border-white/20 bg-white/5" onClick={loadTrending}>
+                Trending
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2 mb-6 max-h-[50vh] overflow-y-auto pr-1">
+            {tracksLoading && (
+              <div className="flex items-center justify-center py-10 text-white/60 gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" /> Memuat lagu…
+              </div>
+            )}
+            {tracksError && (
+              <div className="text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg p-3">
+                {tracksError}
+              </div>
+            )}
+            {!tracksLoading && !tracksError && tracks.length === 0 && (
+              <div className="text-center text-white/50 py-10 text-sm">Tidak ada lagu ditemukan.</div>
+            )}
+            {tracks.map((p) => (
               <button
                 key={p.id}
                 onClick={() => setTrack(p)}
-                className={`w-full text-left rounded-xl p-4 border transition flex items-center justify-between ${
-                  track.id === p.id
+                className={`w-full text-left rounded-xl p-3 border transition flex items-center gap-3 ${
+                  track?.id === p.id
                     ? "border-fuchsia-400/60 bg-fuchsia-500/10"
                     : "border-white/10 bg-white/5 hover:border-white/30"
                 }`}
               >
-                <div>
-                  <div className="font-bold">{p.title}</div>
-                  <div className="text-xs text-white/50">{p.artist}</div>
+                {p.artwork ? (
+                  <img src={p.artwork} alt="" className="w-12 h-12 rounded-md object-cover" />
+                ) : (
+                  <div className="w-12 h-12 rounded-md bg-white/10 flex items-center justify-center">
+                    <Music className="w-5 h-5 text-white/40" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold truncate">{p.title}</div>
+                  <div className="text-xs text-white/50 truncate">{p.artist}</div>
                 </div>
-                <Music className="w-4 h-4 text-white/40" />
+                <div className="text-xs text-white/40 tabular-nums">
+                  {Math.floor(p.duration / 60)}:{String(p.duration % 60).padStart(2, "0")}
+                </div>
               </button>
             ))}
-          </div>
-
-          <div className="space-y-2 mb-6">
-            <p className="text-xs uppercase tracking-widest text-white/40">Atau URL audio (mp3, harus mengizinkan CORS)</p>
-            <div className="flex gap-2">
-              <Input
-                value={customUrl}
-                onChange={(e) => setCustomUrl(e.target.value)}
-                placeholder="https://.../song.mp3"
-                className="bg-white/5 border-white/10"
-              />
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  if (customUrl.trim()) {
-                    setTrack({ id: "custom", title: "Custom Track", artist: customUrl, url: customUrl.trim() });
-                  }
-                }}
-              >
-                Pakai
-              </Button>
-            </div>
           </div>
 
           {loadError && (
@@ -471,11 +520,13 @@ export default function RhythmHero() {
           )}
 
           <Button
-            onClick={() => loadTrack(track.url)}
-            className="w-full h-12 text-base font-bold bg-gradient-to-r from-fuchsia-500 to-cyan-500 hover:opacity-90"
+            disabled={!track}
+            onClick={() => track && loadTrack(track.streamUrl)}
+            className="w-full h-12 text-base font-bold bg-gradient-to-r from-fuchsia-500 to-cyan-500 hover:opacity-90 disabled:opacity-50"
           >
             Muat & Siapkan
           </Button>
+
         </div>
       )}
 
@@ -660,7 +711,7 @@ export default function RhythmHero() {
           </div>
 
           <p className="text-center text-xs text-white/40 mt-3">
-            Track: <span className="text-white/70">{track.title}</span> · {track.artist}
+            Track: <span className="text-white/70">{track?.title}</span> · {track?.artist}
           </p>
         </div>
       )}

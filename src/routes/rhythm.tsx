@@ -5,16 +5,16 @@ export const Route = createFileRoute("/rhythm")({
   component: RhythmPage,
   head: () => ({
     meta: [
-      { title: "Rhythm Hero — SanGames" },
+      { title: "Typing Hero — SanGames" },
       {
         name: "description",
         content:
-          "Rhythm Hero: game ritme 6 lajur ala Guitar Hero dengan deteksi beat otomatis dari musik online.",
+          "Typing Hero: game ritme 6 lajur ala Guitar Hero dengan lagu langsung dari Audius.",
       },
-      { property: "og:title", content: "Rhythm Hero — SanGames" },
+      { property: "og:title", content: "Typing Hero — SanGames" },
       {
         property: "og:description",
-        content: "Tekan A S D J K L mengikuti irama lagu. Beatmap dibuat otomatis dari audio.",
+        content: "Tekan A S D J K L mengikuti irama lagu Audius. Beatmap dibuat otomatis.",
       },
     ],
   }),

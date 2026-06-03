@@ -47,10 +47,10 @@ const GAMES: GameCard[] = [
   },
   {
     id: "rhythm",
-    title: "Rhythm Hero",
-    tagline: "6-Lane Rhythm Game",
+    title: "Typing Hero",
+    tagline: "6-Lane Music Game",
     description:
-      "Tekan A S D J K L mengikuti irama lagu. Beatmap otomatis dibuat dari analisis audio — pilih lagu atau pakai URL mp3 sendiri.",
+      "Tekan A S D J K L mengikuti irama lagu dari Audius. Pilih lagu trending atau cari favoritmu, beatmap dibuat otomatis.",
     to: "/rhythm",
     badge: "Baru",
     icon: <Music className="w-8 h-8" />,
