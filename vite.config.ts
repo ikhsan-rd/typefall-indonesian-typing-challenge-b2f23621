@@ -12,11 +12,11 @@ import { nitro } from "nitro/vite";
 const isVercel = process.env.VERCEL === "1" || process.env.DEPLOY_TARGET === "vercel";
 
 export default defineConfig({
-  cloudflare: isVercel ? false : undefined,
+  ...(isVercel ? { cloudflare: false } : {}),
   plugins: isVercel ? [nitro({ preset: "vercel" })] : [],
   tanstackStart: isVercel
     ? {}
     : {
         server: { entry: "server" },
       },
-});
+} as any);
