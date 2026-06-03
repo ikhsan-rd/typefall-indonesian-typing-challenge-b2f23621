@@ -429,7 +429,7 @@ export default function RhythmHero() {
         </Link>
         <div className="flex items-center gap-2 text-sm">
           <Music className="w-4 h-4 text-fuchsia-400" />
-          <span className="font-bold tracking-wider">RHYTHM HERO</span>
+          <span className="font-bold tracking-wider">TYPING HERO</span>
         </div>
         <Link
           to="/leaderboard"
