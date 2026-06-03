@@ -711,7 +711,7 @@ export default function RhythmHero() {
           </div>
 
           <p className="text-center text-xs text-white/40 mt-3">
-            Track: <span className="text-white/70">{track.title}</span> · {track.artist}
+            Track: <span className="text-white/70">{track?.title}</span> · {track?.artist}
           </p>
         </div>
       )}
