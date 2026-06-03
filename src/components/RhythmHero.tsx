@@ -53,55 +53,159 @@ const PERFECT_WINDOW = 0.06;
 const GOOD_WINDOW = 0.14;
 const MISS_WINDOW = 0.18;
 
-/* ---------- Beat detection (energy-based onset) ---------- */
+/* ---------- Beat detection (multi-band spectral flux + adaptive threshold) ---------- */
+// Downmix to mono, split into 3 bands using simple IIR filters,
+// compute per-band energy per ~11ms hop, take positive spectral flux,
+// pick peaks above local median*sensitivity, and map band -> lane group.
 function detectNotes(buffer: AudioBuffer): Note[] {
-  const data = buffer.getChannelData(0);
-  const sampleRate = buffer.sampleRate;
-  const frame = Math.floor(sampleRate * 0.023); // ~23ms
-  const frames: number[] = [];
-  for (let i = 0; i + frame < data.length; i += frame) {
-    let sum = 0;
-    for (let j = 0; j < frame; j++) sum += data[i + j] * data[i + j];
-    frames.push(Math.sqrt(sum / frame));
+  const sr = buffer.sampleRate;
+  const chs = buffer.numberOfChannels;
+  const N = buffer.length;
+  // mono mix
+  const mono = new Float32Array(N);
+  for (let c = 0; c < chs; c++) {
+    const d = buffer.getChannelData(c);
+    for (let i = 0; i < N; i++) mono[i] += d[i] / chs;
   }
-  // moving avg
-  const win = 22; // ~0.5s
-  const avg: number[] = new Array(frames.length).fill(0);
-  for (let i = 0; i < frames.length; i++) {
-    let s = 0;
-    let c = 0;
-    for (let j = Math.max(0, i - win); j <= Math.min(frames.length - 1, i + win); j++) {
-      s += frames[j];
-      c++;
+
+  // One-pole filter helper. cutoff in Hz.
+  const alphaLP = (fc: number) => {
+    const x = Math.exp((-2 * Math.PI * fc) / sr);
+    return x;
+  };
+  // Low band: lowpass at 200 Hz (kick/bass)
+  // Mid band: bandpass 200..2000 Hz (snare/vocals)
+  // High band: highpass at 2000 Hz (hats/cymbals)
+  const lpA = alphaLP(200);
+  const midLoA = alphaLP(2000);
+  const midHiA = alphaLP(200);
+  const hpA = alphaLP(2000);
+
+  const hop = Math.floor(sr * 0.011); // ~11ms
+  const nFrames = Math.floor(N / hop);
+  const eLow = new Float32Array(nFrames);
+  const eMid = new Float32Array(nFrames);
+  const eHigh = new Float32Array(nFrames);
+
+  let lpPrev = 0;
+  let midLoPrev = 0;
+  let midHiPrev = 0;
+  let hpPrev = 0;
+  let prevSample = 0;
+
+  let idx = 0;
+  let accLow = 0;
+  let accMid = 0;
+  let accHigh = 0;
+  let cnt = 0;
+  for (let i = 0; i < N; i++) {
+    const s = mono[i];
+    // low-pass
+    lpPrev = lpPrev * lpA + s * (1 - lpA);
+    const low = lpPrev;
+    // wider lowpass for mid upper bound
+    midLoPrev = midLoPrev * midLoA + s * (1 - midLoA);
+    midHiPrev = midHiPrev * midHiA + s * (1 - midHiA);
+    const mid = midLoPrev - midHiPrev;
+    // high-pass via x - lowpass
+    hpPrev = hpPrev * hpA + s * (1 - hpA);
+    const high = s - hpPrev;
+    void prevSample;
+    prevSample = s;
+
+    accLow += low * low;
+    accMid += mid * mid;
+    accHigh += high * high;
+    cnt++;
+    if (cnt >= hop) {
+      eLow[idx] = Math.sqrt(accLow / cnt);
+      eMid[idx] = Math.sqrt(accMid / cnt);
+      eHigh[idx] = Math.sqrt(accHigh / cnt);
+      idx++;
+      accLow = accMid = accHigh = 0;
+      cnt = 0;
+      if (idx >= nFrames) break;
     }
-    avg[i] = s / c;
   }
+
+  // Spectral flux per band (positive differences)
+  const fluxBand = (e: Float32Array) => {
+    const f = new Float32Array(e.length);
+    for (let i = 1; i < e.length; i++) {
+      const d = e[i] - e[i - 1];
+      f[i] = d > 0 ? d : 0;
+    }
+    return f;
+  };
+  const fLow = fluxBand(eLow);
+  const fMid = fluxBand(eMid);
+  const fHigh = fluxBand(eHigh);
+
+  // Combined onset function for tempo-agnostic peak picking
+  const flux = new Float32Array(nFrames);
+  for (let i = 0; i < nFrames; i++) flux[i] = fLow[i] * 1.3 + fMid[i] + fHigh[i] * 0.9;
+
+  // Adaptive threshold: local mean over ~0.4s window
+  const win = Math.max(8, Math.floor(0.4 / 0.011));
+  const localMean = new Float32Array(nFrames);
+  let runSum = 0;
+  for (let i = 0; i < nFrames; i++) {
+    runSum += flux[i];
+    if (i >= win) runSum -= flux[i - win];
+    localMean[i] = runSum / Math.min(i + 1, win);
+  }
+  const sensitivity = 1.55;
+  const floor = 0.005;
+  const minGapFrames = Math.floor(0.12 / 0.011); // 120ms
+
+  // Pick peaks
+  type Peak = { i: number; t: number; band: 0 | 1 | 2; strength: number };
+  const peaks: Peak[] = [];
+  let lastPeak = -minGapFrames;
+  for (let i = 2; i < nFrames - 2; i++) {
+    const v = flux[i];
+    const th = localMean[i] * sensitivity + floor;
+    if (
+      v > th &&
+      v >= flux[i - 1] &&
+      v >= flux[i + 1] &&
+      v >= flux[i - 2] &&
+      v >= flux[i + 2] &&
+      i - lastPeak >= minGapFrames
+    ) {
+      // dominant band at this frame
+      const a = fLow[i];
+      const b = fMid[i];
+      const c = fHigh[i];
+      let band: 0 | 1 | 2 = 0;
+      if (b >= a && b >= c) band = 1;
+      else if (c >= a && c >= b) band = 2;
+      peaks.push({ i, t: (i * hop) / sr, band, strength: v });
+      lastPeak = i;
+    }
+  }
+
+  // Map band -> two lane choices, alternate within band to avoid spamming same key
+  const laneFor = (band: 0 | 1 | 2, alt: number) => {
+    if (band === 0) return alt % 2 === 0 ? 0 : 1; // bass: A/S
+    if (band === 1) return alt % 2 === 0 ? 2 : 3; // mid: D/J
+    return alt % 2 === 0 ? 4 : 5; // high: K/L
+  };
+
+  const altBand = [0, 0, 0];
   const notes: Note[] = [];
   let id = 0;
-  let lastBeat = -1;
-  const minGap = 6; // ~140ms minimum between notes
-  for (let i = 1; i < frames.length - 1; i++) {
-    const threshold = avg[i] * 1.45 + 0.01;
-    if (
-      frames[i] > threshold &&
-      frames[i] > frames[i - 1] &&
-      frames[i] >= frames[i + 1] &&
-      i - lastBeat > minGap
-    ) {
-      const t = (i * frame) / sampleRate;
-      // pick lane from local frequency-ish heuristic: energy delta
-      const delta = frames[i] - avg[i];
-      const lane = Math.abs(Math.floor((delta * 1000 + i * 7) % 6));
-      notes.push({ id: id++, lane, time: t, hit: false, judged: false });
-      lastBeat = i;
-    }
+  for (const p of peaks) {
+    if (p.t < 0.8) continue; // skip lead-in
+    const lane = laneFor(p.band, altBand[p.band]++);
+    notes.push({ id: id++, lane, time: p.t, hit: false, judged: false });
   }
-  // ensure variety — if too few, sprinkle in steady eighth-notes
-  if (notes.length < 30) {
-    const dur = buffer.duration;
+
+  // Fallback: if extremely sparse, fill with quarter-note grid using estimated tempo
+  if (notes.length < 20 && buffer.duration > 5) {
     const step = 0.5;
-    for (let t = 1.5; t < dur - 1; t += step) {
-      notes.push({ id: id++, lane: Math.floor(Math.random() * 6), time: t, hit: false, judged: false });
+    for (let t = 1.5; t < buffer.duration - 1; t += step) {
+      notes.push({ id: id++, lane: id % 6, time: t, hit: false, judged: false });
     }
     notes.sort((a, b) => a.time - b.time);
   }
