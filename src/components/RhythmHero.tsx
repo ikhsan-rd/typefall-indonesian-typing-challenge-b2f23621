@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Play, Pause, RotateCcw, Music, Trophy, Loader2 } from "lucide-react";
+import { ArrowLeft, Play, Pause, RotateCcw, Music, Trophy, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { submitScore, loadSavedName, saveName, sanitizeName } from "@/lib/scores";
+import { fetchTrending, searchTracks, type AudiusTrack } from "@/lib/audius";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 
 /* ============================================================
-   RhythmHero — 6-lane falling notes rhythm game
+   TypingHero — 6-lane falling notes game powered by Audius
    Keys: A S D  J K L
    ============================================================ */
 
@@ -34,16 +35,6 @@ const LANE_RING = [
   "shadow-cyan-400/60",
   "shadow-indigo-400/60",
   "shadow-fuchsia-500/60",
-];
-
-type TrackPreset = { id: string; title: string; artist: string; url: string };
-
-// SoundHelix royalty-free, CORS-enabled
-const PRESETS: TrackPreset[] = [
-  { id: "sh1", title: "Neon Pulse", artist: "SoundHelix #1", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
-  { id: "sh2", title: "Cyber Drive", artist: "SoundHelix #2", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
-  { id: "sh3", title: "Midnight Run", artist: "SoundHelix #3", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" },
-  { id: "sh4", title: "Echo Bloom", artist: "SoundHelix #4", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3" },
 ];
 
 type Note = {
