@@ -102,6 +102,8 @@ export default function RhythmHero() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const notesRef = useRef<Note[]>([]);
+  const beatmapRef = useRef<MasterBeatmap | null>(null);
+  const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const startedAtRef = useRef<number>(0);
   const pauseOffsetRef = useRef<number>(0);
   const rafRef = useRef<number | null>(null);
