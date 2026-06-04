@@ -557,7 +557,23 @@ export default function RhythmHero() {
               <div className="hidden sm:block">
                 <div className="text-[10px] uppercase tracking-widest text-white/40">Akurasi</div>
                 <div className="text-2xl font-black tabular-nums text-cyan-300">{accuracy}%</div>
-              </div>
+              {(status === "ready" || status === "over") && beatmapRef.current && (
+                <div className="hidden md:flex items-center gap-1 ml-2 p-1 rounded-full bg-white/5 border border-white/10">
+                  {DIFFICULTIES.map((d) => (
+                    <button
+                      key={d.id}
+                      onClick={() => changeDifficulty(d.id)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition ${
+                        difficulty === d.id
+                          ? `bg-gradient-to-r ${d.color} text-black`
+                          : "text-white/60 hover:text-white"
+                      }`}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {status === "ready" && (
