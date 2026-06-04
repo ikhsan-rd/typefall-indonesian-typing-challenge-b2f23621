@@ -161,20 +161,31 @@ export default function RhythmHero() {
     return pauseOffsetRef.current;
   }, [status]);
 
-  /* ---------- Load track ---------- */
-  const loadTrack = useCallback(async (url: string) => {
+  /* ---------- Load track (with beatmap cache) ---------- */
+  const loadTrack = useCallback(async (t: AudiusTrack, diff: Difficulty) => {
     setStatus("loading");
     setLoadError(null);
     setProgress(0);
     try {
-      const res = await fetch(url);
+      // 1) Try cache first
+      let bm = loadCachedBeatmap(t.id);
+
+      // 2) Always need the audio bytes for playback
+      const res = await fetch(t.streamUrl);
       if (!res.ok) throw new Error("Gagal memuat audio (" + res.status + ")");
       const buf = await res.arrayBuffer();
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const decoded = await ctx.decodeAudioData(buf.slice(0));
-      const notes = detectNotes(decoded);
-      notesRef.current = notes;
-      // setup audio element from blob
+
+      // 3) Analyze only if no cache
+      if (!bm) {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const decoded = await ctx.decodeAudioData(buf.slice(0));
+        bm = buildBeatmap(decoded, t.id);
+        saveCachedBeatmap(bm);
+      }
+      beatmapRef.current = bm;
+      notesRef.current = getChart(bm, diff);
+
+      // 4) Set up audio element
       const blob = new Blob([buf], { type: "audio/mpeg" });
       const blobUrl = URL.createObjectURL(blob);
       if (audioRef.current) {
@@ -193,6 +204,19 @@ export default function RhythmHero() {
       setStatus("menu");
     }
   }, []);
+
+  /* Swap difficulty without re-analyzing */
+  const changeDifficulty = useCallback((d: Difficulty) => {
+    setDifficulty(d);
+    if (beatmapRef.current && (status === "ready" || status === "over")) {
+      notesRef.current = getChart(beatmapRef.current, d);
+      pauseOffsetRef.current = 0;
+      setScore(0); setCombo(0); setMaxCombo(0); setPerfect(0); setGood(0); setMiss(0);
+      setProgress(0);
+      if (audioRef.current) audioRef.current.currentTime = 0;
+      setStatus("ready");
+    }
+  }, [status]);
 
   /* ---------- Game loop ---------- */
   useEffect(() => {
