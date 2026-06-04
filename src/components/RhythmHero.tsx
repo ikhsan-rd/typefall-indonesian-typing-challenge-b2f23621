@@ -6,6 +6,15 @@ import { Input } from "@/components/ui/input";
 import { submitScore, loadSavedName, saveName, sanitizeName } from "@/lib/scores";
 import { fetchTrending, searchTracks, type AudiusTrack } from "@/lib/audius";
 import {
+  buildBeatmap,
+  getChart,
+  loadCachedBeatmap,
+  saveCachedBeatmap,
+  type Difficulty,
+  type MasterBeatmap,
+  type Note,
+} from "@/lib/beatmap";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -37,21 +46,20 @@ const LANE_RING = [
   "shadow-fuchsia-500/60",
 ];
 
-type Note = {
-  id: number;
-  lane: number;
-  time: number; // seconds, when it should be hit
-  hit: boolean;
-  judged: boolean;
-};
-
 type Judgement = { id: number; lane: number; text: string; color: string; at: number };
 
-const FALL_DURATION = 1.6; // seconds a note takes to fall from top to hit line
-const HIT_LINE_RATIO = 0.84; // vertical position of hit line (0..1)
+const FALL_DURATION = 1.6;
+const HIT_LINE_RATIO = 0.84;
 const PERFECT_WINDOW = 0.06;
 const GOOD_WINDOW = 0.14;
 const MISS_WINDOW = 0.18;
+
+const DIFFICULTIES: { id: Difficulty; label: string; desc: string; color: string }[] = [
+  { id: "easy",   label: "Easy",   desc: "1–2 nps · pemula",        color: "from-emerald-400 to-lime-500" },
+  { id: "normal", label: "Normal", desc: "2–4 nps · casual",         color: "from-cyan-400 to-sky-500" },
+  { id: "hard",   label: "Hard",   desc: "4–6 nps · berpengalaman",  color: "from-amber-400 to-orange-500" },
+  { id: "expert", label: "Expert", desc: "6–10+ nps · veteran",      color: "from-rose-500 to-fuchsia-600" },
+];
 
 /* ---------- Beat detection (multi-band spectral flux + adaptive threshold) ---------- */
 // Downmix to mono, split into 3 bands using simple IIR filters,
