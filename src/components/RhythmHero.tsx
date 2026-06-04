@@ -397,7 +397,7 @@ export default function RhythmHero() {
   const accuracy = total > 0 ? Math.round(((perfect + good * 0.5) / total) * 100) : 0;
 
   return (
-    <div className="min-h-screen w-full bg-[#070713] text-white overflow-hidden relative">
+    <div className="min-h-screen w-full bg-[#070713] text-white overflow-y-auto relative">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-fuchsia-600/20 blur-3xl" />
         <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full bg-cyan-500/20 blur-3xl" />
