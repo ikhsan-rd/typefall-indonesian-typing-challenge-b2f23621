@@ -6,6 +6,15 @@ import { Input } from "@/components/ui/input";
 import { submitScore, loadSavedName, saveName, sanitizeName } from "@/lib/scores";
 import { fetchTrending, searchTracks, type AudiusTrack } from "@/lib/audius";
 import {
+  buildBeatmap,
+  getChart,
+  loadCachedBeatmap,
+  saveCachedBeatmap,
+  type Difficulty,
+  type MasterBeatmap,
+  type Note,
+} from "@/lib/beatmap";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -37,322 +46,22 @@ const LANE_RING = [
   "shadow-fuchsia-500/60",
 ];
 
-type Note = {
-  id: number;
-  lane: number;
-  time: number; // seconds, when it should be hit
-  hit: boolean;
-  judged: boolean;
-};
-
 type Judgement = { id: number; lane: number; text: string; color: string; at: number };
 
-const FALL_DURATION = 1.6; // seconds a note takes to fall from top to hit line
-const HIT_LINE_RATIO = 0.84; // vertical position of hit line (0..1)
+const FALL_DURATION = 1.6;
+const HIT_LINE_RATIO = 0.84;
 const PERFECT_WINDOW = 0.06;
 const GOOD_WINDOW = 0.14;
 const MISS_WINDOW = 0.18;
 
-/* ---------- Beat detection (multi-band spectral flux + adaptive threshold) ---------- */
-// Downmix to mono, split into 3 bands using simple IIR filters,
-// compute per-band energy per ~11ms hop, take positive spectral flux,
-// pick peaks above local median*sensitivity, and map band -> lane group.
-function detectNotes(buffer: AudioBuffer): Note[] {
-  const sr = buffer.sampleRate;
-  const chs = buffer.numberOfChannels;
-  const N = buffer.length;
-  // mono mix
-  const mono = new Float32Array(N);
-  for (let c = 0; c < chs; c++) {
-    const d = buffer.getChannelData(c);
-    for (let i = 0; i < N; i++) mono[i] += d[i] / chs;
-  }
+const DIFFICULTIES: { id: Difficulty; label: string; desc: string; color: string }[] = [
+  { id: "easy",   label: "Easy",   desc: "1–2 nps · pemula",        color: "from-emerald-400 to-lime-500" },
+  { id: "normal", label: "Normal", desc: "2–4 nps · casual",         color: "from-cyan-400 to-sky-500" },
+  { id: "hard",   label: "Hard",   desc: "4–6 nps · berpengalaman",  color: "from-amber-400 to-orange-500" },
+  { id: "expert", label: "Expert", desc: "6–10+ nps · veteran",      color: "from-rose-500 to-fuchsia-600" },
+];
 
-  // One-pole filter helper. cutoff in Hz.
-  const alphaLP = (fc: number) => {
-    const x = Math.exp((-2 * Math.PI * fc) / sr);
-    return x;
-  };
-  // Low band: lowpass at 200 Hz (kick/bass)
-  // Mid band: bandpass 200..2000 Hz (snare/vocals)
-  // High band: highpass at 2000 Hz (hats/cymbals)
-  const lpA = alphaLP(200);
-  const midLoA = alphaLP(2000);
-  const midHiA = alphaLP(200);
-  const hpA = alphaLP(2000);
-
-  const hop = Math.floor(sr * 0.011); // ~11ms
-  const nFrames = Math.floor(N / hop);
-  const eLow = new Float32Array(nFrames);
-  const eMid = new Float32Array(nFrames);
-  const eHigh = new Float32Array(nFrames);
-
-  let lpPrev = 0;
-  let midLoPrev = 0;
-  let midHiPrev = 0;
-  let hpPrev = 0;
-  let prevSample = 0;
-
-  let idx = 0;
-  let accLow = 0;
-  let accMid = 0;
-  let accHigh = 0;
-  let cnt = 0;
-  for (let i = 0; i < N; i++) {
-    const s = mono[i];
-    // low-pass
-    lpPrev = lpPrev * lpA + s * (1 - lpA);
-    const low = lpPrev;
-    // wider lowpass for mid upper bound
-    midLoPrev = midLoPrev * midLoA + s * (1 - midLoA);
-    midHiPrev = midHiPrev * midHiA + s * (1 - midHiA);
-    const mid = midLoPrev - midHiPrev;
-    // high-pass via x - lowpass
-    hpPrev = hpPrev * hpA + s * (1 - hpA);
-    const high = s - hpPrev;
-    void prevSample;
-    prevSample = s;
-
-    accLow += low * low;
-    accMid += mid * mid;
-    accHigh += high * high;
-    cnt++;
-    if (cnt >= hop) {
-      eLow[idx] = Math.sqrt(accLow / cnt);
-      eMid[idx] = Math.sqrt(accMid / cnt);
-      eHigh[idx] = Math.sqrt(accHigh / cnt);
-      idx++;
-      accLow = accMid = accHigh = 0;
-      cnt = 0;
-      if (idx >= nFrames) break;
-    }
-  }
-
-  // Spectral flux per band (positive differences)
-  const fluxBand = (e: Float32Array) => {
-    const f = new Float32Array(e.length);
-    for (let i = 1; i < e.length; i++) {
-      const d = e[i] - e[i - 1];
-      f[i] = d > 0 ? d : 0;
-    }
-    return f;
-  };
-  const fLow = fluxBand(eLow);
-  const fMid = fluxBand(eMid);
-  const fHigh = fluxBand(eHigh);
-
-  // Combined onset function for tempo-agnostic peak picking
-  const flux = new Float32Array(nFrames);
-  for (let i = 0; i < nFrames; i++) flux[i] = fLow[i] * 1.3 + fMid[i] + fHigh[i] * 0.9;
-
-  // Adaptive threshold: local mean over ~0.4s window
-  const win = Math.max(8, Math.floor(0.4 / 0.011));
-  const localMean = new Float32Array(nFrames);
-  let runSum = 0;
-  for (let i = 0; i < nFrames; i++) {
-    runSum += flux[i];
-    if (i >= win) runSum -= flux[i - win];
-    localMean[i] = runSum / Math.min(i + 1, win);
-  }
-  const sensitivity = 1.55;
-  const floor = 0.005;
-  const minGapFrames = Math.floor(0.12 / 0.011); // 120ms
-
-  // Pick peaks
-  type Peak = { i: number; t: number; band: 0 | 1 | 2; strength: number };
-  const peaks: Peak[] = [];
-  let lastPeak = -minGapFrames;
-  for (let i = 2; i < nFrames - 2; i++) {
-    const v = flux[i];
-    const th = localMean[i] * sensitivity + floor;
-    if (
-      v > th &&
-      v >= flux[i - 1] &&
-      v >= flux[i + 1] &&
-      v >= flux[i - 2] &&
-      v >= flux[i + 2] &&
-      i - lastPeak >= minGapFrames
-    ) {
-      // dominant band at this frame
-      const a = fLow[i];
-      const b = fMid[i];
-      const c = fHigh[i];
-      let band: 0 | 1 | 2 = 0;
-      if (b >= a && b >= c) band = 1;
-      else if (c >= a && c >= b) band = 2;
-      peaks.push({ i, t: (i * hop) / sr, band, strength: v });
-      lastPeak = i;
-    }
-  }
-
-  /* ============================================================
-     Note generation — convert peaks into a musical chart
-     - Band zones: bass=A/S, mid=D/J, treble=K/L (strict)
-     - Lane memory: weighted stay/switch per band
-     - Pattern engine: short repeating motifs during same-band runs
-     - Phrase detection: 1.5s windows shape consistent micro-charts
-     - Chord detection: simultaneous bands -> multi-lane notes
-     - Min spacing per band, prioritize strongest events
-     ============================================================ */
-
-  // Per-band lane zones
-  const BAND_LANES: Record<0 | 1 | 2, [number, number]> = {
-    0: [0, 1], // bass: A, S
-    1: [2, 3], // mid: D, J
-    2: [4, 5], // treble: K, L
-  };
-  // Patterns expressed as indices into the band's 2-lane zone (0 or 1)
-  const PATTERNS: Record<0 | 1 | 2, number[][]> = {
-    0: [
-      [0, 1, 0, 1],
-      [0, 0, 1],
-      [1, 0, 1],
-      [0, 1, 1, 0],
-    ],
-    1: [
-      [0, 1, 0, 1],
-      [0, 0, 1],
-      [1, 0, 1],
-      [0, 1, 0, 0],
-    ],
-    2: [
-      [0, 1, 0, 1],
-      [0, 0, 1],
-      [1, 0, 1],
-      [1, 1, 0, 1],
-    ],
-  };
-  const MIN_SPACING: Record<0 | 1 | 2, number> = {
-    0: 0.12, // bass 120ms
-    1: 0.10, // mid 100ms
-    2: 0.08, // treble 80ms
-  };
-  const CHORD_TOLERANCE = 0.05; // 50ms
-
-  // 1) Compute composite score & filter out weak noise
-  const fluxAt = (i: number, b: 0 | 1 | 2) => (b === 0 ? fLow[i] : b === 1 ? fMid[i] : fHigh[i]);
-  const energyAt = (i: number, b: 0 | 1 | 2) => {
-    const e = b === 0 ? eLow : b === 1 ? eMid : eHigh;
-    return Math.max(0, e[i] - (e[i - 1] ?? 0));
-  };
-  const scored = peaks
-    .filter((p) => p.t >= 0.8)
-    .map((p) => ({
-      ...p,
-      score: fluxAt(p.i, p.band) + energyAt(p.i, p.band) * 1.5 + p.strength,
-    }));
-
-  // 2) Per-band spacing: keep stronger, drop weaker neighbors
-  const perBand: Record<0 | 1 | 2, typeof scored> = { 0: [], 1: [], 2: [] };
-  for (const p of scored) perBand[p.band].push(p);
-  for (const b of [0, 1, 2] as const) {
-    perBand[b].sort((a, b2) => a.t - b2.t);
-    const kept: typeof scored = [];
-    for (const p of perBand[b]) {
-      const last = kept[kept.length - 1];
-      if (last && p.t - last.t < MIN_SPACING[b]) {
-        if (p.score > last.score) kept[kept.length - 1] = p;
-      } else {
-        kept.push(p);
-      }
-    }
-    perBand[b] = kept;
-  }
-
-  // 3) Chord detection: merge near-simultaneous events across bands
-  type Event = { t: number; bands: { band: 0 | 1 | 2; score: number }[] };
-  const events: Event[] = [];
-  const all = [...perBand[0], ...perBand[1], ...perBand[2]].sort((a, b) => a.t - b.t);
-  for (const p of all) {
-    const last = events[events.length - 1];
-    if (last && p.t - last.t <= CHORD_TOLERANCE && !last.bands.some((x) => x.band === p.band)) {
-      last.bands.push({ band: p.band, score: p.score });
-      last.t = (last.t + p.t) / 2;
-    } else {
-      events.push({ t: p.t, bands: [{ band: p.band, score: p.score }] });
-    }
-  }
-
-  // 4) Lane memory + pattern engine
-  const lastLane: Record<0 | 1 | 2, 0 | 1> = { 0: 0, 1: 0, 2: 0 };
-  const runCount: Record<0 | 1 | 2, number> = { 0: 0, 1: 0, 2: 0 };
-  const runPattern: Record<0 | 1 | 2, { pat: number[]; idx: number } | null> = {
-    0: null, 1: null, 2: null,
-  };
-  const RUN_GAP = 0.6; // seconds — break a run
-  const lastBandT: Record<0 | 1 | 2, number> = { 0: -99, 1: -99, 2: -99 };
-
-  const chooseZoneIdx = (band: 0 | 1 | 2, t: number): 0 | 1 => {
-    // Run detection per band
-    if (t - lastBandT[band] <= RUN_GAP) {
-      runCount[band]++;
-    } else {
-      runCount[band] = 1;
-      runPattern[band] = null;
-    }
-    lastBandT[band] = t;
-
-    // Start a pattern after 3+ same-band events within window
-    if (runCount[band] >= 3) {
-      if (!runPattern[band]) {
-        const pats = PATTERNS[band];
-        const pat = pats[Math.floor(Math.random() * pats.length)];
-        runPattern[band] = { pat, idx: 0 };
-      }
-      const rp = runPattern[band]!;
-      const v = rp.pat[rp.idx % rp.pat.length] as 0 | 1;
-      rp.idx++;
-      lastLane[band] = v;
-      return v;
-    }
-
-    // Weighted lane memory: 70% stay, 25% switch, 5% switch (band has only 2 lanes)
-    const r = Math.random();
-    const prev = lastLane[band];
-    let next: 0 | 1;
-    if (r < 0.7) next = prev;
-    else next = (1 - prev) as 0 | 1;
-    lastLane[band] = next;
-    return next;
-  };
-
-  // 5) Phrase smoothing — every ~1.5s window, bias toward the dominant band's pattern
-  //    (already partly handled by run/pattern engine; phrase boundaries reset runs cleanly)
-  const PHRASE = 1.5;
-  let phraseEnd = events[0]?.t ?? 0;
-  let phraseDom: 0 | 1 | 2 | null = null;
-  const phraseCount = [0, 0, 0];
-
-  const notes: Note[] = [];
-  let id = 0;
-  for (const ev of events) {
-    if (ev.t > phraseEnd) {
-      phraseEnd = ev.t + PHRASE;
-      phraseDom = null;
-      phraseCount[0] = phraseCount[1] = phraseCount[2] = 0;
-    }
-    // Sort bands in event by score (strongest first) for chord ordering
-    ev.bands.sort((a, b) => b.score - a.score);
-    for (const { band } of ev.bands) {
-      phraseCount[band]++;
-      if (phraseDom === null || phraseCount[band] > phraseCount[phraseDom]) phraseDom = band;
-      const zoneIdx = chooseZoneIdx(band, ev.t);
-      const lane = BAND_LANES[band][zoneIdx];
-      notes.push({ id: id++, lane, time: ev.t, hit: false, judged: false });
-    }
-  }
-  void phraseDom;
-
-  // Fallback: if extremely sparse, fill with quarter-note grid using estimated tempo
-  if (notes.length < 20 && buffer.duration > 5) {
-    const step = 0.5;
-    for (let t = 1.5; t < buffer.duration - 1; t += step) {
-      notes.push({ id: id++, lane: id % 6, time: t, hit: false, judged: false });
-    }
-    notes.sort((a, b) => a.time - b.time);
-  }
-  return notes;
-}
+/* Beat detection + difficulty charts + cache live in src/lib/beatmap.ts */
 
 /* ---------- Hit SFX ---------- */
 let actx: AudioContext | null = null;
@@ -393,6 +102,8 @@ export default function RhythmHero() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const notesRef = useRef<Note[]>([]);
+  const beatmapRef = useRef<MasterBeatmap | null>(null);
+  const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const startedAtRef = useRef<number>(0);
   const pauseOffsetRef = useRef<number>(0);
   const rafRef = useRef<number | null>(null);
@@ -450,20 +161,31 @@ export default function RhythmHero() {
     return pauseOffsetRef.current;
   }, [status]);
 
-  /* ---------- Load track ---------- */
-  const loadTrack = useCallback(async (url: string) => {
+  /* ---------- Load track (with beatmap cache) ---------- */
+  const loadTrack = useCallback(async (t: AudiusTrack, diff: Difficulty) => {
     setStatus("loading");
     setLoadError(null);
     setProgress(0);
     try {
-      const res = await fetch(url);
+      // 1) Try cache first
+      let bm = loadCachedBeatmap(t.id);
+
+      // 2) Always need the audio bytes for playback
+      const res = await fetch(t.streamUrl);
       if (!res.ok) throw new Error("Gagal memuat audio (" + res.status + ")");
       const buf = await res.arrayBuffer();
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const decoded = await ctx.decodeAudioData(buf.slice(0));
-      const notes = detectNotes(decoded);
-      notesRef.current = notes;
-      // setup audio element from blob
+
+      // 3) Analyze only if no cache
+      if (!bm) {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const decoded = await ctx.decodeAudioData(buf.slice(0));
+        bm = buildBeatmap(decoded, t.id);
+        saveCachedBeatmap(bm);
+      }
+      beatmapRef.current = bm;
+      notesRef.current = getChart(bm, diff);
+
+      // 4) Set up audio element
       const blob = new Blob([buf], { type: "audio/mpeg" });
       const blobUrl = URL.createObjectURL(blob);
       if (audioRef.current) {
@@ -482,6 +204,19 @@ export default function RhythmHero() {
       setStatus("menu");
     }
   }, []);
+
+  /* Swap difficulty without re-analyzing */
+  const changeDifficulty = useCallback((d: Difficulty) => {
+    setDifficulty(d);
+    if (beatmapRef.current && (status === "ready" || status === "over")) {
+      notesRef.current = getChart(beatmapRef.current, d);
+      pauseOffsetRef.current = 0;
+      setScore(0); setCombo(0); setMaxCombo(0); setPerfect(0); setGood(0); setMiss(0);
+      setProgress(0);
+      if (audioRef.current) audioRef.current.currentTime = 0;
+      setStatus("ready");
+    }
+  }, [status]);
 
   /* ---------- Game loop ---------- */
   useEffect(() => {
@@ -642,7 +377,7 @@ export default function RhythmHero() {
     const accuracy = total > 0 ? Math.round(((perfect + good * 0.5) / total) * 100) : 0;
     const duration = Math.round(audioRef.current?.duration ?? 0);
     submitScore({
-      game: "typinghero",
+      game: `typinghero:${difficulty}`,
       player_name: playerName,
       score,
       level: maxCombo,
@@ -650,7 +385,7 @@ export default function RhythmHero() {
       wpm: 0,
       duration_sec: duration,
     });
-  }, [status, perfect, good, miss, playerName, score, maxCombo]);
+  }, [status, perfect, good, miss, playerName, score, maxCombo, difficulty]);
 
   /* ---------- Falling notes positions ---------- */
   const now = getNow();
@@ -759,6 +494,28 @@ export default function RhythmHero() {
             ))}
           </div>
 
+          <div className="mb-4">
+            <p className="text-xs uppercase tracking-widest text-white/40 mb-2">Difficulty</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {DIFFICULTIES.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => setDifficulty(d.id)}
+                  className={`rounded-xl p-3 border text-left transition ${
+                    difficulty === d.id
+                      ? "border-white/40 bg-white/10"
+                      : "border-white/10 bg-white/5 hover:border-white/25"
+                  }`}
+                >
+                  <div className={`text-sm font-black bg-gradient-to-r ${d.color} bg-clip-text text-transparent`}>
+                    {d.label}
+                  </div>
+                  <div className="text-[10px] text-white/50 mt-0.5">{d.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {loadError && (
             <div className="text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg p-3 mb-4">
               {loadError}
@@ -767,11 +524,12 @@ export default function RhythmHero() {
 
           <Button
             disabled={!track}
-            onClick={() => track && loadTrack(track.streamUrl)}
+            onClick={() => track && loadTrack(track, difficulty)}
             className="w-full h-12 text-base font-bold bg-gradient-to-r from-fuchsia-500 to-cyan-500 hover:opacity-90 disabled:opacity-50"
           >
             Muat & Siapkan
           </Button>
+
 
         </div>
       )}
@@ -800,6 +558,23 @@ export default function RhythmHero() {
                 <div className="text-[10px] uppercase tracking-widest text-white/40">Akurasi</div>
                 <div className="text-2xl font-black tabular-nums text-cyan-300">{accuracy}%</div>
               </div>
+              {(status === "ready" || status === "over") && beatmapRef.current && (
+                <div className="hidden md:flex items-center gap-1 ml-2 p-1 rounded-full bg-white/5 border border-white/10">
+                  {DIFFICULTIES.map((d) => (
+                    <button
+                      key={d.id}
+                      onClick={() => changeDifficulty(d.id)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition ${
+                        difficulty === d.id
+                          ? `bg-gradient-to-r ${d.color} text-black`
+                          : "text-white/60 hover:text-white"
+                      }`}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {status === "ready" && (
