@@ -71,7 +71,7 @@ const GAMES: GameCard[] = [
 
 function Home() {
   return (
-    <div className="min-h-screen bg-[#070713] text-white overflow-hidden relative">
+    <div className="min-h-screen h-full bg-[#070713] text-white overflow-y-auto overflow-x-auto relative">
       {/* Background glow */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-fuchsia-600/20 blur-3xl" />
@@ -96,9 +96,7 @@ function Home() {
             </div>
             <div>
               <h1 className="text-xl font-black tracking-tight">SanGames</h1>
-              <p className="text-[10px] uppercase tracking-[0.25em] text-white/50">
-                Web Game Hub
-              </p>
+              <p className="text-[10px] uppercase tracking-[0.25em] text-white/50">Web Game Hub</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -131,8 +129,8 @@ function Home() {
             di Browser-mu.
           </h2>
           <p className="text-base md:text-lg text-white/60 max-w-2xl mx-auto">
-            Koleksi game web bikinan SanGames. Tanpa install, tanpa ribet. Pilih game favoritmu
-            dan mulai main sekarang.
+            Koleksi game web bikinan SanGames. Tanpa install, tanpa ribet. Pilih game favoritmu dan
+            mulai main sekarang.
           </p>
         </section>
 
@@ -140,7 +138,9 @@ function Home() {
         <section>
           <div className="flex items-end justify-between mb-6">
             <h3 className="text-2xl font-bold">Daftar Game</h3>
-            <span className="text-sm text-white/50">{GAMES.filter((g) => g.available).length} game tersedia</span>
+            <span className="text-sm text-white/50">
+              {GAMES.filter((g) => g.available).length} game tersedia
+            </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

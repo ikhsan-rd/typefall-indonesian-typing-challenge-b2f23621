@@ -55,10 +55,20 @@ const GOOD_WINDOW = 0.14;
 const MISS_WINDOW = 0.18;
 
 const DIFFICULTIES: { id: Difficulty; label: string; desc: string; color: string }[] = [
-  { id: "easy",   label: "Easy",   desc: "1–2 nps · pemula",        color: "from-emerald-400 to-lime-500" },
-  { id: "normal", label: "Normal", desc: "2–4 nps · casual",         color: "from-cyan-400 to-sky-500" },
-  { id: "hard",   label: "Hard",   desc: "4–6 nps · berpengalaman",  color: "from-amber-400 to-orange-500" },
-  { id: "expert", label: "Expert", desc: "6–10+ nps · veteran",      color: "from-rose-500 to-fuchsia-600" },
+  { id: "easy", label: "Easy", desc: "1–2 nps · pemula", color: "from-emerald-400 to-lime-500" },
+  { id: "normal", label: "Normal", desc: "2–4 nps · casual", color: "from-cyan-400 to-sky-500" },
+  {
+    id: "hard",
+    label: "Hard",
+    desc: "4–6 nps · berpengalaman",
+    color: "from-amber-400 to-orange-500",
+  },
+  {
+    id: "expert",
+    label: "Expert",
+    desc: "6–10+ nps · veteran",
+    color: "from-rose-500 to-fuchsia-600",
+  },
 ];
 
 /* Beat detection + difficulty charts + cache live in src/lib/beatmap.ts */
@@ -81,7 +91,9 @@ function playHit(freq: number) {
 }
 
 export default function RhythmHero() {
-  const [status, setStatus] = useState<"menu" | "loading" | "ready" | "playing" | "paused" | "over" | "name">("menu");
+  const [status, setStatus] = useState<
+    "menu" | "loading" | "ready" | "playing" | "paused" | "over" | "name"
+  >("menu");
   const [track, setTrack] = useState<AudiusTrack | null>(null);
   const [tracks, setTracks] = useState<AudiusTrack[]>([]);
   const [tracksLoading, setTracksLoading] = useState(false);
@@ -152,7 +164,6 @@ export default function RhythmHero() {
     }
   }, [query, loadTrending]);
 
-
   /* ---------- Time helper ---------- */
   const getNow = useCallback(() => {
     if (status === "playing") {
@@ -206,17 +217,25 @@ export default function RhythmHero() {
   }, []);
 
   /* Swap difficulty without re-analyzing */
-  const changeDifficulty = useCallback((d: Difficulty) => {
-    setDifficulty(d);
-    if (beatmapRef.current && (status === "ready" || status === "over")) {
-      notesRef.current = getChart(beatmapRef.current, d);
-      pauseOffsetRef.current = 0;
-      setScore(0); setCombo(0); setMaxCombo(0); setPerfect(0); setGood(0); setMiss(0);
-      setProgress(0);
-      if (audioRef.current) audioRef.current.currentTime = 0;
-      setStatus("ready");
-    }
-  }, [status]);
+  const changeDifficulty = useCallback(
+    (d: Difficulty) => {
+      setDifficulty(d);
+      if (beatmapRef.current && (status === "ready" || status === "over")) {
+        notesRef.current = getChart(beatmapRef.current, d);
+        pauseOffsetRef.current = 0;
+        setScore(0);
+        setCombo(0);
+        setMaxCombo(0);
+        setPerfect(0);
+        setGood(0);
+        setMiss(0);
+        setProgress(0);
+        if (audioRef.current) audioRef.current.currentTime = 0;
+        setStatus("ready");
+      }
+    },
+    [status],
+  );
 
   /* ---------- Game loop ---------- */
   useEffect(() => {
@@ -338,7 +357,8 @@ export default function RhythmHero() {
   };
   const pauseGame = () => {
     if (!audioRef.current) return;
-    pauseOffsetRef.current = pauseOffsetRef.current + (performance.now() - startedAtRef.current) / 1000;
+    pauseOffsetRef.current =
+      pauseOffsetRef.current + (performance.now() - startedAtRef.current) / 1000;
     audioRef.current.pause();
     setStatus("paused");
   };
@@ -397,7 +417,7 @@ export default function RhythmHero() {
   const accuracy = total > 0 ? Math.round(((perfect + good * 0.5) / total) * 100) : 0;
 
   return (
-    <div className="min-h-screen w-full bg-[#070713] text-white overflow-hidden relative">
+    <div className="min-h-screen w-full bg-[#070713] text-white overflow-x-hidden overflow-y-auto relative">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-fuchsia-600/20 blur-3xl" />
         <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full bg-cyan-500/20 blur-3xl" />
@@ -430,7 +450,8 @@ export default function RhythmHero() {
           </h1>
           <p className="text-center text-white/60 mb-8 text-sm">
             6 lajur · tekan <kbd className="px-1.5 py-0.5 rounded bg-white/10">A S D</kbd>{" "}
-            <kbd className="px-1.5 py-0.5 rounded bg-white/10">J K L</kbd> tepat saat not menyentuh garis
+            <kbd className="px-1.5 py-0.5 rounded bg-white/10">J K L</kbd> tepat saat not menyentuh
+            garis
           </p>
 
           <div className="space-y-2 mb-4">
@@ -446,7 +467,11 @@ export default function RhythmHero() {
               <Button variant="secondary" onClick={runSearch}>
                 <Search className="w-4 h-4" />
               </Button>
-              <Button variant="outline" className="border-white/20 bg-white/5" onClick={loadTrending}>
+              <Button
+                variant="outline"
+                className="border-white/20 bg-white/5"
+                onClick={loadTrending}
+              >
                 Trending
               </Button>
             </div>
@@ -464,7 +489,9 @@ export default function RhythmHero() {
               </div>
             )}
             {!tracksLoading && !tracksError && tracks.length === 0 && (
-              <div className="text-center text-white/50 py-10 text-sm">Tidak ada lagu ditemukan.</div>
+              <div className="text-center text-white/50 py-10 text-sm">
+                Tidak ada lagu ditemukan.
+              </div>
             )}
             {tracks.map((p) => (
               <button
@@ -507,7 +534,9 @@ export default function RhythmHero() {
                       : "border-white/10 bg-white/5 hover:border-white/25"
                   }`}
                 >
-                  <div className={`text-sm font-black bg-gradient-to-r ${d.color} bg-clip-text text-transparent`}>
+                  <div
+                    className={`text-sm font-black bg-gradient-to-r ${d.color} bg-clip-text text-transparent`}
+                  >
                     {d.label}
                   </div>
                   <div className="text-[10px] text-white/50 mt-0.5">{d.desc}</div>
@@ -529,8 +558,6 @@ export default function RhythmHero() {
           >
             Muat & Siapkan
           </Button>
-
-
         </div>
       )}
 
@@ -607,15 +634,25 @@ export default function RhythmHero() {
           </div>
 
           {/* Playfield */}
-          <div className="relative w-full mx-auto rounded-2xl border border-white/10 bg-black/40 overflow-hidden" style={{ height: "min(72vh, 640px)" }}>
+          <div
+            className="relative w-full mx-auto rounded-2xl border border-white/10 bg-black/40 overflow-hidden"
+            style={{ height: "min(72vh, 640px)" }}
+          >
             {/* lane backgrounds */}
-            <div className="absolute inset-0 grid" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+            <div
+              className="absolute inset-0 grid"
+              style={{ gridTemplateColumns: "repeat(6, 1fr)" }}
+            >
               {LANE_KEYS.map((k, i) => (
                 <div key={i} className="relative border-r border-white/5 last:border-r-0">
-                  <div className={`absolute inset-0 bg-gradient-to-b ${LANE_COLORS[i]} opacity-[0.04]`} />
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-b ${LANE_COLORS[i]} opacity-[0.04]`}
+                  />
                   {/* lane flash */}
                   {performance.now() - laneFlash[i] < 150 && (
-                    <div className={`absolute inset-0 bg-gradient-to-b ${LANE_COLORS[i]} opacity-20`} />
+                    <div
+                      className={`absolute inset-0 bg-gradient-to-b ${LANE_COLORS[i]} opacity-20`}
+                    />
                   )}
                 </div>
               ))}
@@ -684,7 +721,9 @@ export default function RhythmHero() {
                   }}
                   className="mx-1 mt-3 h-14 rounded-lg border border-white/15 bg-white/5 backdrop-blur active:bg-white/20 flex items-center justify-center"
                 >
-                  <span className="text-lg font-black uppercase tracking-widest text-white/80">{k}</span>
+                  <span className="text-lg font-black uppercase tracking-widest text-white/80">
+                    {k}
+                  </span>
                 </button>
               ))}
             </div>
@@ -705,7 +744,9 @@ export default function RhythmHero() {
             {status === "over" && (
               <div className="absolute inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center p-6">
                 <div className="text-center max-w-sm w-full">
-                  <div className="text-xs uppercase tracking-widest text-white/50 mb-2">Selesai</div>
+                  <div className="text-xs uppercase tracking-widest text-white/50 mb-2">
+                    Selesai
+                  </div>
                   <div className="text-5xl font-black mb-1 bg-gradient-to-r from-fuchsia-400 to-cyan-300 bg-clip-text text-transparent">
                     {score}
                   </div>
@@ -717,7 +758,10 @@ export default function RhythmHero() {
                     <Stat label="MaxCombo" value={maxCombo} color="text-fuchsia-300" />
                   </div>
                   <div className="flex gap-2 justify-center">
-                    <Button onClick={resetGame} className="bg-gradient-to-r from-fuchsia-500 to-cyan-500">
+                    <Button
+                      onClick={resetGame}
+                      className="bg-gradient-to-r from-fuchsia-500 to-cyan-500"
+                    >
                       <RotateCcw className="w-4 h-4" /> Main Lagi
                     </Button>
                     <Link to="/leaderboard">
