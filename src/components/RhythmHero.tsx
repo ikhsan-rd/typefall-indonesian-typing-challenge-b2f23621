@@ -327,8 +327,23 @@ export default function RhythmHero() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (status !== "playing" && status !== "ready" && status !== "paused") {
+        return;
+      }
+
       const k = e.key.toLowerCase();
       const idx = LANE_KEYS.indexOf(k as any);
+
       if (idx >= 0) {
         e.preventDefault();
         hitLane(idx);
@@ -339,6 +354,7 @@ export default function RhythmHero() {
         startGame();
       }
     };
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [hitLane, status]);
