@@ -494,6 +494,28 @@ export default function RhythmHero() {
             ))}
           </div>
 
+          <div className="mb-4">
+            <p className="text-xs uppercase tracking-widest text-white/40 mb-2">Difficulty</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {DIFFICULTIES.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => setDifficulty(d.id)}
+                  className={`rounded-xl p-3 border text-left transition ${
+                    difficulty === d.id
+                      ? "border-white/40 bg-white/10"
+                      : "border-white/10 bg-white/5 hover:border-white/25"
+                  }`}
+                >
+                  <div className={`text-sm font-black bg-gradient-to-r ${d.color} bg-clip-text text-transparent`}>
+                    {d.label}
+                  </div>
+                  <div className="text-[10px] text-white/50 mt-0.5">{d.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {loadError && (
             <div className="text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg p-3 mb-4">
               {loadError}
@@ -502,11 +524,12 @@ export default function RhythmHero() {
 
           <Button
             disabled={!track}
-            onClick={() => track && loadTrack(track.streamUrl)}
+            onClick={() => track && loadTrack(track, difficulty)}
             className="w-full h-12 text-base font-bold bg-gradient-to-r from-fuchsia-500 to-cyan-500 hover:opacity-90 disabled:opacity-50"
           >
             Muat & Siapkan
           </Button>
+
 
         </div>
       )}
