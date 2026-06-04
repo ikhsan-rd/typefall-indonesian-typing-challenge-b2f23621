@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 
 /* ============================================================
-   TypingHero — 6-lane falling notes game powered by Audius
+   TypingHero — 6-lane powered by Auduis
    Keys: A S D  J K L
    ============================================================ */
 
