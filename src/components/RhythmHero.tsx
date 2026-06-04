@@ -185,21 +185,163 @@ function detectNotes(buffer: AudioBuffer): Note[] {
     }
   }
 
-  // Map band -> two lane choices, alternate within band to avoid spamming same key
-  const laneFor = (band: 0 | 1 | 2, alt: number) => {
-    if (band === 0) return alt % 2 === 0 ? 0 : 1; // bass: A/S
-    if (band === 1) return alt % 2 === 0 ? 2 : 3; // mid: D/J
-    return alt % 2 === 0 ? 4 : 5; // high: K/L
+  /* ============================================================
+     Note generation — convert peaks into a musical chart
+     - Band zones: bass=A/S, mid=D/J, treble=K/L (strict)
+     - Lane memory: weighted stay/switch per band
+     - Pattern engine: short repeating motifs during same-band runs
+     - Phrase detection: 1.5s windows shape consistent micro-charts
+     - Chord detection: simultaneous bands -> multi-lane notes
+     - Min spacing per band, prioritize strongest events
+     ============================================================ */
+
+  // Per-band lane zones
+  const BAND_LANES: Record<0 | 1 | 2, [number, number]> = {
+    0: [0, 1], // bass: A, S
+    1: [2, 3], // mid: D, J
+    2: [4, 5], // treble: K, L
+  };
+  // Patterns expressed as indices into the band's 2-lane zone (0 or 1)
+  const PATTERNS: Record<0 | 1 | 2, number[][]> = {
+    0: [
+      [0, 1, 0, 1],
+      [0, 0, 1],
+      [1, 0, 1],
+      [0, 1, 1, 0],
+    ],
+    1: [
+      [0, 1, 0, 1],
+      [0, 0, 1],
+      [1, 0, 1],
+      [0, 1, 0, 0],
+    ],
+    2: [
+      [0, 1, 0, 1],
+      [0, 0, 1],
+      [1, 0, 1],
+      [1, 1, 0, 1],
+    ],
+  };
+  const MIN_SPACING: Record<0 | 1 | 2, number> = {
+    0: 0.12, // bass 120ms
+    1: 0.10, // mid 100ms
+    2: 0.08, // treble 80ms
+  };
+  const CHORD_TOLERANCE = 0.05; // 50ms
+
+  // 1) Compute composite score & filter out weak noise
+  const fluxAt = (i: number, b: 0 | 1 | 2) => (b === 0 ? fLow[i] : b === 1 ? fMid[i] : fHigh[i]);
+  const energyAt = (i: number, b: 0 | 1 | 2) => {
+    const e = b === 0 ? eLow : b === 1 ? eMid : eHigh;
+    return Math.max(0, e[i] - (e[i - 1] ?? 0));
+  };
+  const scored = peaks
+    .filter((p) => p.t >= 0.8)
+    .map((p) => ({
+      ...p,
+      score: fluxAt(p.i, p.band) + energyAt(p.i, p.band) * 1.5 + p.strength,
+    }));
+
+  // 2) Per-band spacing: keep stronger, drop weaker neighbors
+  const perBand: Record<0 | 1 | 2, typeof scored> = { 0: [], 1: [], 2: [] };
+  for (const p of scored) perBand[p.band].push(p);
+  for (const b of [0, 1, 2] as const) {
+    perBand[b].sort((a, b2) => a.t - b2.t);
+    const kept: typeof scored = [];
+    for (const p of perBand[b]) {
+      const last = kept[kept.length - 1];
+      if (last && p.t - last.t < MIN_SPACING[b]) {
+        if (p.score > last.score) kept[kept.length - 1] = p;
+      } else {
+        kept.push(p);
+      }
+    }
+    perBand[b] = kept;
+  }
+
+  // 3) Chord detection: merge near-simultaneous events across bands
+  type Event = { t: number; bands: { band: 0 | 1 | 2; score: number }[] };
+  const events: Event[] = [];
+  const all = [...perBand[0], ...perBand[1], ...perBand[2]].sort((a, b) => a.t - b.t);
+  for (const p of all) {
+    const last = events[events.length - 1];
+    if (last && p.t - last.t <= CHORD_TOLERANCE && !last.bands.some((x) => x.band === p.band)) {
+      last.bands.push({ band: p.band, score: p.score });
+      last.t = (last.t + p.t) / 2;
+    } else {
+      events.push({ t: p.t, bands: [{ band: p.band, score: p.score }] });
+    }
+  }
+
+  // 4) Lane memory + pattern engine
+  const lastLane: Record<0 | 1 | 2, 0 | 1> = { 0: 0, 1: 0, 2: 0 };
+  const runCount: Record<0 | 1 | 2, number> = { 0: 0, 1: 0, 2: 0 };
+  const runPattern: Record<0 | 1 | 2, { pat: number[]; idx: number } | null> = {
+    0: null, 1: null, 2: null,
+  };
+  const RUN_GAP = 0.6; // seconds — break a run
+  const lastBandT: Record<0 | 1 | 2, number> = { 0: -99, 1: -99, 2: -99 };
+
+  const chooseZoneIdx = (band: 0 | 1 | 2, t: number): 0 | 1 => {
+    // Run detection per band
+    if (t - lastBandT[band] <= RUN_GAP) {
+      runCount[band]++;
+    } else {
+      runCount[band] = 1;
+      runPattern[band] = null;
+    }
+    lastBandT[band] = t;
+
+    // Start a pattern after 3+ same-band events within window
+    if (runCount[band] >= 3) {
+      if (!runPattern[band]) {
+        const pats = PATTERNS[band];
+        const pat = pats[Math.floor(Math.random() * pats.length)];
+        runPattern[band] = { pat, idx: 0 };
+      }
+      const rp = runPattern[band]!;
+      const v = rp.pat[rp.idx % rp.pat.length] as 0 | 1;
+      rp.idx++;
+      lastLane[band] = v;
+      return v;
+    }
+
+    // Weighted lane memory: 70% stay, 25% switch, 5% switch (band has only 2 lanes)
+    const r = Math.random();
+    const prev = lastLane[band];
+    let next: 0 | 1;
+    if (r < 0.7) next = prev;
+    else next = (1 - prev) as 0 | 1;
+    lastLane[band] = next;
+    return next;
   };
 
-  const altBand = [0, 0, 0];
+  // 5) Phrase smoothing — every ~1.5s window, bias toward the dominant band's pattern
+  //    (already partly handled by run/pattern engine; phrase boundaries reset runs cleanly)
+  const PHRASE = 1.5;
+  let phraseEnd = events[0]?.t ?? 0;
+  let phraseDom: 0 | 1 | 2 | null = null;
+  const phraseCount = [0, 0, 0];
+
   const notes: Note[] = [];
   let id = 0;
-  for (const p of peaks) {
-    if (p.t < 0.8) continue; // skip lead-in
-    const lane = laneFor(p.band, altBand[p.band]++);
-    notes.push({ id: id++, lane, time: p.t, hit: false, judged: false });
+  for (const ev of events) {
+    if (ev.t > phraseEnd) {
+      phraseEnd = ev.t + PHRASE;
+      phraseDom = null;
+      phraseCount[0] = phraseCount[1] = phraseCount[2] = 0;
+    }
+    // Sort bands in event by score (strongest first) for chord ordering
+    ev.bands.sort((a, b) => b.score - a.score);
+    for (const { band } of ev.bands) {
+      phraseCount[band]++;
+      if (phraseDom === null || phraseCount[band] > phraseCount[phraseDom]) phraseDom = band;
+      const zoneIdx = chooseZoneIdx(band, ev.t);
+      const lane = BAND_LANES[band][zoneIdx];
+      notes.push({ id: id++, lane, time: ev.t, hit: false, judged: false });
+    }
   }
+  void phraseDom;
 
   // Fallback: if extremely sparse, fill with quarter-note grid using estimated tempo
   if (notes.length < 20 && buffer.duration > 5) {
