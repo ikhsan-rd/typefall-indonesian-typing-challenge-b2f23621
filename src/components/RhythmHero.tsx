@@ -377,7 +377,7 @@ export default function RhythmHero() {
     const accuracy = total > 0 ? Math.round(((perfect + good * 0.5) / total) * 100) : 0;
     const duration = Math.round(audioRef.current?.duration ?? 0);
     submitScore({
-      game: "typinghero",
+      game: `typinghero:${difficulty}`,
       player_name: playerName,
       score,
       level: maxCombo,
@@ -385,7 +385,7 @@ export default function RhythmHero() {
       wpm: 0,
       duration_sec: duration,
     });
-  }, [status, perfect, good, miss, playerName, score, maxCombo]);
+  }, [status, perfect, good, miss, playerName, score, maxCombo, difficulty]);
 
   /* ---------- Falling notes positions ---------- */
   const now = getNow();
