@@ -557,6 +557,7 @@ export default function RhythmHero() {
               <div className="hidden sm:block">
                 <div className="text-[10px] uppercase tracking-widest text-white/40">Akurasi</div>
                 <div className="text-2xl font-black tabular-nums text-cyan-300">{accuracy}%</div>
+              </div>
               {(status === "ready" || status === "over") && beatmapRef.current && (
                 <div className="hidden md:flex items-center gap-1 ml-2 p-1 rounded-full bg-white/5 border border-white/10">
                   {DIFFICULTIES.map((d) => (
