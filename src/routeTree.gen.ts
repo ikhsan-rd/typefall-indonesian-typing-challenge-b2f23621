@@ -14,6 +14,7 @@ import { Route as RhythmRouteImport } from './routes/rhythm'
 import { Route as MultiplayerRouteImport } from './routes/multiplayer'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicWordsRouteImport } from './routes/api/public/words'
 
 const TypefallRoute = TypefallRouteImport.update({
   id: '/typefall',
@@ -40,6 +41,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicWordsRoute = ApiPublicWordsRouteImport.update({
+  id: '/api/public/words',
+  path: '/api/public/words',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/multiplayer': typeof MultiplayerRoute
   '/rhythm': typeof RhythmRoute
   '/typefall': typeof TypefallRoute
+  '/api/public/words': typeof ApiPublicWordsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/multiplayer': typeof MultiplayerRoute
   '/rhythm': typeof RhythmRoute
   '/typefall': typeof TypefallRoute
+  '/api/public/words': typeof ApiPublicWordsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,12 +70,25 @@ export interface FileRoutesById {
   '/multiplayer': typeof MultiplayerRoute
   '/rhythm': typeof RhythmRoute
   '/typefall': typeof TypefallRoute
+  '/api/public/words': typeof ApiPublicWordsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/leaderboard' | '/multiplayer' | '/rhythm' | '/typefall'
+  fullPaths:
+    | '/'
+    | '/leaderboard'
+    | '/multiplayer'
+    | '/rhythm'
+    | '/typefall'
+    | '/api/public/words'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/leaderboard' | '/multiplayer' | '/rhythm' | '/typefall'
+  to:
+    | '/'
+    | '/leaderboard'
+    | '/multiplayer'
+    | '/rhythm'
+    | '/typefall'
+    | '/api/public/words'
   id:
     | '__root__'
     | '/'
@@ -75,6 +96,7 @@ export interface FileRouteTypes {
     | '/multiplayer'
     | '/rhythm'
     | '/typefall'
+    | '/api/public/words'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -83,6 +105,7 @@ export interface RootRouteChildren {
   MultiplayerRoute: typeof MultiplayerRoute
   RhythmRoute: typeof RhythmRoute
   TypefallRoute: typeof TypefallRoute
+  ApiPublicWordsRoute: typeof ApiPublicWordsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -122,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/words': {
+      id: '/api/public/words'
+      path: '/api/public/words'
+      fullPath: '/api/public/words'
+      preLoaderRoute: typeof ApiPublicWordsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -131,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   MultiplayerRoute: MultiplayerRoute,
   RhythmRoute: RhythmRoute,
   TypefallRoute: TypefallRoute,
+  ApiPublicWordsRoute: ApiPublicWordsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

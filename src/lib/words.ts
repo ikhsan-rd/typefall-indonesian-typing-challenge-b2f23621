@@ -30,7 +30,7 @@ export async function getRandomWord(level: number): Promise<string> {
   const len = getLengthByLevel(level);
 
   const pattern = "?".repeat(len);
-  const url = `https://api.datamuse.com/words?sp=${pattern}&max=300`;
+  const url = `/api/public/words?sp=${pattern}&max=300`;
 
   const res = await fetch(url);
   if (!res.ok) {
