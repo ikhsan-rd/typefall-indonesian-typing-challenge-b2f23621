@@ -103,18 +103,21 @@ export async function rpcNextRound(room_id: string) {
 }
 
 export async function fetchRoom(room_id: string) {
-  const { data } = await supabase.from("rooms").select("*").eq("id", room_id).single();
+  const { data, error } = await supabase.from("rooms").select("*").eq("id", room_id).maybeSingle();
+  if (error) { console.error("[fetchRoom]", error); throw error; }
   return data as Room | null;
 }
 export async function fetchPlayers(room_id: string) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("room_players")
     .select("*")
     .eq("room_id", room_id)
     .order("slot");
+  if (error) { console.error("[fetchPlayers]", error); throw error; }
   return (data ?? []) as RoomPlayer[];
 }
 export async function fetchState(room_id: string) {
-  const { data } = await supabase.from("room_state").select("*").eq("room_id", room_id).single();
+  const { data, error } = await supabase.from("room_state").select("*").eq("room_id", room_id).maybeSingle();
+  if (error) { console.error("[fetchState]", error); throw error; }
   return data as RoomState | null;
 }
