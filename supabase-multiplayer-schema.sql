@@ -131,7 +131,7 @@ begin
   if _uid is null then raise exception 'auth required'; end if;
   loop
     _code := upper(substr(md5(random()::text || clock_timestamp()::text), 1, 6));
-    exit when not exists (select 1 from public.rooms where code = _code);
+    exit when not exists (select 1 from public.rooms r where r.code = _code);
     _try := _try + 1;
     if _try > 8 then raise exception 'code generation failed'; end if;
   end loop;
