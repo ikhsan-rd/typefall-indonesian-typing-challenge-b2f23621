@@ -68,6 +68,19 @@ alter publication supabase_realtime add table public.rooms;
 alter publication supabase_realtime add table public.room_players;
 alter publication supabase_realtime add table public.room_state;
 
+-- ============= GRANTS (REQUIRED for PostgREST/Data API) =============
+-- Without these, SELECT returns empty/null even when RLS allows it.
+grant select on public.rooms to authenticated;
+grant select on public.room_players to authenticated;
+grant select on public.room_state to authenticated;
+grant all on public.rooms to service_role;
+grant all on public.room_players to service_role;
+grant all on public.room_state to service_role;
+-- REPLICA IDENTITY FULL so realtime UPDATE/DELETE payloads include all columns
+alter table public.rooms replica identity full;
+alter table public.room_players replica identity full;
+alter table public.room_state replica identity full;
+
 -- ============= HELPER =============
 create or replace function public.is_room_member(_room uuid, _user uuid)
 returns boolean
